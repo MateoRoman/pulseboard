@@ -1,0 +1,13 @@
+# Normaliza saltos de línea: LF en el repo, nativo en el working copy.
+* text=auto eol=lf
+
+# Scripts de PowerShell: CRLF en disco (Windows), LF en el repo.
+*.ps1 text eol=crlf
+
+# Binarios: sin conversión.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff  binary
+*.woff2 binary

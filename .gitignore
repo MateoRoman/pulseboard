@@ -1,0 +1,41 @@
+# --- Secrets / entorno ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Claude Code ---
+# Las skills de spec-kit en .claude/skills/ SÍ se versionan (son scaffold del proyecto).
+# Solo se ignora el estado local, que es donde se guardan permisos y credenciales.
+.claude/settings.local.json
+
+# --- Dependencias / builds ---
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# --- OS / editor ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
