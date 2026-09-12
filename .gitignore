@@ -10,6 +10,12 @@
 # Solo se ignora el estado local, que es donde se guardan permisos y credenciales.
 .claude/settings.local.json
 
+# --- Estado de ejecución ---
+# El almacén del foro es estado en tiempo de ejecución, no código fuente.
+# Se crea al publicar el primer mensaje.
+backend/data/messages.json
+backend/data/messages.json.tmp
+
 # --- Dependencias / builds ---
 node_modules/
 dist/
@@ -17,6 +23,12 @@ build/
 .next/
 out/
 coverage/
+
+# --- Java / Maven ---
+target/
+*.class
+# El Maven Wrapper SÍ se versiona (no hay Maven global): mvnw, mvnw.cmd, .mvn/
+!.mvn/wrapper/maven-wrapper.properties
 
 # --- Python ---
 __pycache__/
