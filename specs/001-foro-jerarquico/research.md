@@ -48,7 +48,7 @@ Node ≥22.12.0 como prerrequisito.
 
 ## R2 — Framework del back-end Java
 
-**Decisión**: **Spring Boot 4.1.1** sobre **Java 21**, con `spring-boot-starter-web`.
+**Decisión**: **Spring Boot 4.1.1** sobre **Java 21**, con `spring-boot-starter-webmvc`.
 
 **Rationale**: es la versión por defecto que hoy ofrece Spring Initializr, cuyo catálogo ya
 no incluye la línea 3.5.x. Java 21 figura entre las versiones soportadas (17, 21, 25, 26) y
@@ -85,16 +85,20 @@ construyen con la misma versión. Spring Initializr lo genera junto al proyecto.
 - *Gradle Wrapper*: equivalente en mecánica; Maven se prefiere por alinearse con lo que
   genera Initializr por defecto.
 
-**Riesgo identificado y RESUELTO (2026-09-11)**: `JAVA_HOME` no estaba definido en el
-entorno. Se inspeccionó el `mvnw.cmd` oficial de Apache Maven Wrapper y se confirmó que
-**no** recurre al `java` del `PATH`: si la variable está vacía, aborta con
-`Error: JAVA_HOME not found in your environment`. No era un riesgo hipotético sino un fallo
-seguro.
+**Riesgo descartado al implementar (2026-09-11)**: se había anticipado que `JAVA_HOME`, sin
+definir en el entorno, bloquearía la construcción. La inspección inicial se hizo sobre el
+`mvnw.cmd` de la rama `master` de Apache Maven Wrapper, que efectivamente aborta con
+`Error: JAVA_HOME not found in your environment` si la variable está vacía.
 
-Resuelto definiendo `JAVA_HOME` a nivel de usuario en `C:\Program Files\Java\jdk-21`
-(javac 21.0.6), verificando que existen `bin\java.exe` y `bin\javac.exe`, que es la
-comprobación que el propio wrapper realiza. El entorno tiene además `jdk-17` instalado; si
-algún otro proyecto lo requiere, deberá fijar su propio `JAVA_HOME` localmente.
+**Ese no es el wrapper que genera Spring Initializr.** El proyecto trae el wrapper
+`3.3.4` con `distributionType=only-script`, que no contiene lógica de `JAVA_HOME` en
+absoluto: localiza el JDK por sí mismo. Verificado ejecutando `mvnw.cmd -v` con la variable
+vacía, que devolvió Apache Maven 3.9.16 sobre `C:\Program Files\Java\jdk-21`.
+
+`JAVA_HOME` quedó definido igualmente a nivel de usuario apuntando a ese JDK, pero **no es
+un prerrequisito** del proyecto y el README no lo exige. Nota para otros entornos: el
+`java.exe` del `PATH` en esta máquina es el *shim* `javapath` de Oracle, que no es una raíz
+de JDK válida para `JAVA_HOME`; la raíz correcta es la carpeta que contiene `bin\javac.exe`.
 
 ## R4 — Estructura del archivo JSON y estrategia de escritura
 

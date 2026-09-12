@@ -1,1 +1,129 @@
-/* You can add global styles to this file, and also import other style files */
+/* Estilos globales de Pulseboard. */
+
+:root {
+  --bg: #0f1117;
+  --surface: #171a23;
+  --surface-2: #1e222e;
+  --border: #2a2f3d;
+  --text: #e6e8ef;
+  --text-muted: #9aa1b2;
+  --accent: #6366f1;
+  --accent-soft: #6366f133;
+  --danger: #f87171;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-2: #f0f2f7;
+    --border: #dfe3ec;
+    --text: #1a1d26;
+    --text-muted: #666e80;
+    --accent: #4f46e5;
+    --accent-soft: #4f46e51a;
+    --danger: #dc2626;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  /* La página nunca desborda horizontalmente, ni con la anidación más profunda
+     en pantallas estrechas (SC-005). */
+  overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand-mark {
+  color: var(--accent);
+  font-size: 20px;
+}
+
+.identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--text-muted);
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  max-width: 55vw;
+}
+
+.identity:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.identity-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 20px 16px 64px;
+}
+
+@media (max-width: 480px) {
+  .app-main {
+    padding: 16px 10px 48px;
+  }
+}

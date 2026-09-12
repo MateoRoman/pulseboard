@@ -1,0 +1,28 @@
+<form class="message-form" (ngSubmit)="submit()">
+  <textarea
+    name="content"
+    rows="3"
+    [ngModel]="content()"
+    (ngModelChange)="content.set($event)"
+    [placeholder]="placeholder()"
+    [class.invalid]="tooLong()"
+  ></textarea>
+
+  <div class="row">
+    <span class="counter" [class.over]="tooLong()">
+      @if (config.maxContentLength !== null) {
+        {{ trimmed().length }} / {{ config.maxContentLength }}
+      }
+    </span>
+
+    <button type="submit" class="primary" [disabled]="!canSubmit()">
+      {{ sending() ? 'Enviando…' : submitLabel() }}
+    </button>
+  </div>
+
+  @if (tooLong()) {
+    <p class="error">El mensaje no puede superar los {{ config.maxContentLength }} caracteres.</p>
+  } @else if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+</form>

@@ -1,0 +1,22 @@
+<section class="composer">
+  <h2>Empezar una conversación</h2>
+  <app-message-form submitLabel="Publicar" (published)="reload()" />
+</section>
+
+@if (loading()) {
+  <p class="state">Cargando conversaciones…</p>
+} @else if (error()) {
+  <p class="state error">{{ error() }}</p>
+} @else if (!conversations().length) {
+  <!-- Estado vacío, no un error: el foro sin mensajes es una situación normal (FR-025). -->
+  <div class="state empty">
+    <p class="empty-title">Todavía no hay conversaciones</p>
+    <p class="empty-hint">Publicá el primer mensaje y arrancá el hilo.</p>
+  </div>
+} @else {
+  <div class="conversations">
+    @for (conversation of conversations(); track conversation.id) {
+      <app-conversation [root]="conversation" (changed)="reload()" />
+    }
+  </div>
+}

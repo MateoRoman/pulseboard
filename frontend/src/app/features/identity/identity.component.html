@@ -1,0 +1,66 @@
+<section class="identity-card">
+  <h1>{{ isEditing() ? 'Cambiá tu identidad' : 'Antes de empezar' }}</h1>
+  <p class="subtitle">
+    Elegí con qué nombre y avatar querés aparecer en el foro.
+    @if (isEditing()) {
+      <br />
+      El cambio se aplica a lo que publiques de ahora en adelante; los mensajes que ya
+      publicaste conservan su autoría.
+    }
+  </p>
+
+  <form (ngSubmit)="submit()">
+    <label class="field">
+      <span class="field-label">Tu nombre</span>
+      <input
+        type="text"
+        name="name"
+        [ngModel]="name()"
+        (ngModelChange)="name.set($event)"
+        [attr.maxlength]="config.maxAuthorNameLength"
+        placeholder="Cómo querés que te vean"
+        autocomplete="off"
+        autofocus
+      />
+      <span class="field-meta">
+        @if (config.maxAuthorNameLength !== null) {
+          {{ trimmedName().length }} / {{ config.maxAuthorNameLength }}
+        }
+      </span>
+    </label>
+
+    @if (submitted() && nameError()) {
+      <p class="error">{{ nameError() }}</p>
+    }
+
+    <fieldset class="avatars">
+      <legend class="field-label">Tu avatar</legend>
+      <div class="avatar-grid">
+        @for (option of config.avatars; track option) {
+          <button
+            type="button"
+            class="avatar-option"
+            [class.selected]="avatar() === option"
+            [attr.aria-pressed]="avatar() === option"
+            (click)="selectAvatar(option)"
+          >
+            <app-avatar [avatar]="option" [name]="option" [size]="44" />
+          </button>
+        }
+      </div>
+    </fieldset>
+
+    <div class="preview">
+      <span class="field-label">Así te van a ver</span>
+      <div class="preview-row">
+        <app-avatar [avatar]="avatar()" [name]="trimmedName()" [size]="32" />
+        <!-- Interpolado: el nombre se muestra literal aunque contenga marcado (FR-024). -->
+        <strong>{{ trimmedName() || 'Tu nombre' }}</strong>
+      </div>
+    </div>
+
+    <button type="submit" class="primary" [disabled]="!canSubmit()">
+      {{ isEditing() ? 'Guardar cambios' : 'Entrar al foro' }}
+    </button>
+  </form>
+</section>

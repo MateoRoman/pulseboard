@@ -1,0 +1,64 @@
+.message-form {
+  margin-top: 8px;
+  min-width: 0;
+}
+
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+  outline: none;
+  min-height: 68px;
+}
+
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+textarea.invalid {
+  border-color: var(--danger);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.counter {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.counter.over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.primary {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}

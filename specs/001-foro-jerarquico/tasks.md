@@ -34,16 +34,16 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 **Purpose**: dejar ambos proyectos generados, con todas sus dependencias descargadas y **arrancando**, antes de escribir una sola línea de lógica.
 
-- [ ] T001 Generar el scaffold del back-end en `backend/` con Spring Initializr: Spring Boot 4.1.1, Java 21, build Maven, dependencia `spring-boot-starter-web`, incluyendo Maven Wrapper (`mvnw`, `mvnw.cmd`, `.mvn/`)
-- [ ] T002 Verificar que `.\mvnw.cmd -v` funciona en `backend/`. `JAVA_HOME` **ya quedó definido** a nivel de usuario en `C:\Program Files\Java\jdk-21` el 2026-09-11: se comprobó que el `mvnw.cmd` oficial aborta sin esa variable y no cae al `java` del `PATH` (`research.md` R3). Si la terminal es anterior a ese cambio, abrir una nueva
-- [ ] T003 Fijar en `backend/pom.xml` el `groupId` `com.pulseboard`, el `artifactId` `forum` y el paquete base `com.pulseboard.forum`; añadir `spring-boot-starter-test` como dependencia de prueba
-- [ ] T004 **Instalar las dependencias del back-end**: ejecutar `.\mvnw.cmd -q dependency:go-offline` en `backend/` para descargar Maven y todo el árbol de dependencias, dejando la construcción reproducible sin red
-- [ ] T005 Verificar que el back-end arranca: `.\mvnw.cmd spring-boot:run` en `backend/` responde en `http://localhost:8080`
-- [ ] T006 [P] Generar el scaffold del front-end en `frontend/` con Angular CLI 21.2.x invocado por `npx`, sin instalación global
-- [ ] T007 [P] Fijar en `frontend/package.json` la versión exacta de Angular 21.2.x y declarar `engines.node: ">=22.12.0"` — Angular 22 exige `^22.22.3` y el entorno tiene 22.15.1 (`research.md` R1)
-- [ ] T008 **Instalar las dependencias del front-end**: ejecutar `npm install` en `frontend/` y verificar que no quedan avisos de incompatibilidad de `engines`
-- [ ] T009 [P] Crear `frontend/proxy.conf.json` redirigiendo `/api` a `http://localhost:8080` y referenciarlo desde el script `start` de `frontend/package.json` (`research.md` R7)
-- [ ] T010 Verificar que el front-end arranca: `npm start` en `frontend/` sirve en `http://localhost:4200`
+- [X] T001 Generar el scaffold del back-end en `backend/` con Spring Initializr: Spring Boot 4.1.1, Java 21, build Maven, dependencia web, incluyendo Maven Wrapper (`mvnw`, `mvnw.cmd`, `.mvn/`). **Nota de implementación**: Spring Boot 4 renombró los starters — el generado es `spring-boot-starter-webmvc`, no `spring-boot-starter-web`
+- [X] T002 Verificar que `.\mvnw.cmd -v` funciona en `backend/`. **Resultado**: funciona sin `JAVA_HOME`. El riesgo anticipado no se materializó: el wrapper que genera Initializr es el `3.3.4` de tipo `only-script`, que localiza el JDK por sí mismo. Devolvió Apache Maven 3.9.16 sobre `C:\Program Files\Java\jdk-21` (`research.md` R3)
+- [X] T003 Fijar en `backend/pom.xml` el `groupId` `com.pulseboard`, el `artifactId` `forum` y el paquete base `com.pulseboard.forum`; la dependencia de prueba generada es `spring-boot-starter-webmvc-test`
+- [X] T004 **Instalar las dependencias del back-end**: ejecutar `.\mvnw.cmd -q dependency:go-offline` en `backend/` para descargar Maven y todo el árbol de dependencias, dejando la construcción reproducible sin red
+- [X] T005 Verificar que el back-end arranca: `.\mvnw.cmd spring-boot:run` en `backend/` responde en `http://localhost:8080`
+- [X] T006 [P] Generar el scaffold del front-end en `frontend/` con Angular CLI 21.2.x invocado por `npx`, sin instalación global
+- [X] T007 [P] Fijar en `frontend/package.json` la versión exacta de Angular 21.2.x y declarar `engines.node: ">=22.12.0"` — Angular 22 exige `^22.22.3` y el entorno tiene 22.15.1 (`research.md` R1)
+- [X] T008 **Instalar las dependencias del front-end**: ejecutar `npm install` en `frontend/` y verificar que no quedan avisos de incompatibilidad de `engines`
+- [X] T009 [P] Crear `frontend/proxy.conf.json` redirigiendo `/api` a `http://localhost:8080` y referenciarlo desde el script `start` de `frontend/package.json` (`research.md` R7)
+- [X] T010 Verificar que el front-end arranca: `npm start` en `frontend/` sirve en `http://localhost:4200`
 
 **Checkpoint**: ambos proyectos arrancan con sus dependencias instaladas. Si algo falla aquí, no continuar.
 
@@ -57,34 +57,34 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 ### Back-end: dominio y persistencia
 
-- [ ] T011 [P] Crear `ForumProperties` en `backend/src/main/java/com/pulseboard/forum/config/ForumProperties.java` con `maxDepth`, `maxContentLength`, `maxAuthorNameLength` y el conjunto de avatares
-- [ ] T012 [P] Declarar en `backend/src/main/resources/application.yml` los valores `forum.max-depth: 5`, `forum.max-content-length: 2000`, `forum.max-author-name-length: 40` y los avatares `avatar-01`..`avatar-08` — fuente única del límite (FR-018)
-- [ ] T013 [P] Crear el record `Message` en `backend/src/main/java/com/pulseboard/forum/domain/Message.java` con `id` (UUID v4, estable y único — **FR-012**), `content`, `authorName`, `authorAvatar`, `createdAt` (ISO-8601 UTC con milisegundos — **FR-011**) y `parentId` (UUID o `null`). SIN campo `depth` ni `children`: prohibidos por el Principio I y FR-015
-- [ ] T014 Crear la interfaz `MessageRepository` en `backend/src/main/java/com/pulseboard/forum/repository/MessageRepository.java` como única puerta al archivo (Principio III)
-- [ ] T015 Implementar `JsonMessageRepository` en `backend/src/main/java/com/pulseboard/forum/repository/JsonMessageRepository.java`: leer y escribir el envoltorio `{"schemaVersion": 1, "messages": [...]}` sobre `backend/data/messages.json`, con escritura a `messages.json.tmp` y `Files.move(tmp, destino, ATOMIC_MOVE, REPLACE_EXISTING)`, y todo el acceso serializado por un `ReentrantReadWriteLock` (Principio III, FR-030)
-- [ ] T016 Implementar en `backend/src/main/java/com/pulseboard/forum/repository/JsonMessageRepository.java` el arranque sin archivo (foro vacío, creación perezosa al primer mensaje, FR-028) y el fallo explícito ante JSON malformado, `schemaVersion` desconocida o mensaje individual inválido, indicando ruta y problema (FR-029). No descartar mensajes en silencio
-- [ ] T017 Implementar `MessageTree` en `backend/src/main/java/com/pulseboard/forum/domain/MessageTree.java`: indexar por `id`, enlazar cada mensaje a su padre por `parentId`, ordenar hermanos por `createdAt` ascendente y raíces por `createdAt` descendente con desempate por `id` ascendente, y calcular la profundidad recorriendo desde cada raíz (raíz = 1). Omitir del árbol y registrar los mensajes cuyo `parentId` apunte a un `id` inexistente (FR-019, FR-021)
+- [X] T011 [P] Crear `ForumProperties` en `backend/src/main/java/com/pulseboard/forum/config/ForumProperties.java` con `maxDepth`, `maxContentLength`, `maxAuthorNameLength` y el conjunto de avatares
+- [X] T012 [P] Declarar en `backend/src/main/resources/application.yml` los valores `forum.max-depth: 5`, `forum.max-content-length: 2000`, `forum.max-author-name-length: 40` y los avatares `avatar-01`..`avatar-08` — fuente única del límite (FR-018)
+- [X] T013 [P] Crear el record `Message` en `backend/src/main/java/com/pulseboard/forum/domain/Message.java` con `id` (UUID v4, estable y único — **FR-012**), `content`, `authorName`, `authorAvatar`, `createdAt` (ISO-8601 UTC con milisegundos — **FR-011**) y `parentId` (UUID o `null`). SIN campo `depth` ni `children`: prohibidos por el Principio I y FR-015
+- [X] T014 Crear la interfaz `MessageRepository` en `backend/src/main/java/com/pulseboard/forum/repository/MessageRepository.java` como única puerta al archivo (Principio III)
+- [X] T015 Implementar `JsonMessageRepository` en `backend/src/main/java/com/pulseboard/forum/repository/JsonMessageRepository.java`: leer y escribir el envoltorio `{"schemaVersion": 1, "messages": [...]}` sobre `backend/data/messages.json`, con escritura a `messages.json.tmp` y `Files.move(tmp, destino, ATOMIC_MOVE, REPLACE_EXISTING)`, y todo el acceso serializado por un `ReentrantReadWriteLock` (Principio III, FR-030)
+- [X] T016 Implementar en `backend/src/main/java/com/pulseboard/forum/repository/JsonMessageRepository.java` el arranque sin archivo (foro vacío, creación perezosa al primer mensaje, FR-028) y el fallo explícito ante JSON malformado, `schemaVersion` desconocida o mensaje individual inválido, indicando ruta y problema (FR-029). No descartar mensajes en silencio
+- [X] T017 Implementar `MessageTree` en `backend/src/main/java/com/pulseboard/forum/domain/MessageTree.java`: indexar por `id`, enlazar cada mensaje a su padre por `parentId`, ordenar hermanos por `createdAt` ascendente y raíces por `createdAt` descendente con desempate por `id` ascendente, y calcular la profundidad recorriendo desde cada raíz (raíz = 1). Omitir del árbol y registrar los mensajes cuyo `parentId` apunte a un `id` inexistente (FR-019, FR-021)
 
 ### Back-end: contrato y errores
 
-- [ ] T018 [P] Crear los DTO de la API en `backend/src/main/java/com/pulseboard/forum/web/dto/` (`MessageResponse` con `replies` anidadas y `depth` calculado, `CreateMessageRequest`, `ConfigResponse`, `ConversationsResponse`), distintos del esquema persistido; la traducción entre ambos la exige el Principio III
-- [ ] T019 [P] Crear `ApiError` y `ApiExceptionHandler` en `backend/src/main/java/com/pulseboard/forum/web/` con la forma estable `{code, message, field, timestamp}` y el mapeo a `400`, `404`, `422` y `500` del contrato (Principio II)
-- [ ] T020 Implementar `ConfigController` en `backend/src/main/java/com/pulseboard/forum/web/ConfigController.java` con `GET /api/config`, devolviendo `maxDepth`, `maxContentLength`, `maxAuthorNameLength` y `avatars` desde `ForumProperties`
+- [X] T018 [P] Crear los DTO de la API en `backend/src/main/java/com/pulseboard/forum/web/dto/` (`MessageResponse` con `replies` anidadas y `depth` calculado, `CreateMessageRequest`, `ConfigResponse`, `ConversationsResponse`), distintos del esquema persistido; la traducción entre ambos la exige el Principio III
+- [X] T019 [P] Crear `ApiError` y `ApiExceptionHandler` en `backend/src/main/java/com/pulseboard/forum/web/` con la forma estable `{code, message, field, timestamp}` y el mapeo a `400`, `404`, `422` y `500` del contrato (Principio II)
+- [X] T020 Implementar `ConfigController` en `backend/src/main/java/com/pulseboard/forum/web/ConfigController.java` con `GET /api/config`, devolviendo `maxDepth`, `maxContentLength`, `maxAuthorNameLength` y `avatars` desde `ForumProperties`
 
 ### Back-end: pruebas del núcleo
 
-- [ ] T021 [P] Escribir `MessageTreeTest` en `backend/src/test/java/com/pulseboard/forum/domain/MessageTreeTest.java`: ensamblado desde lista desordenada, determinismo del resultado, profundidad derivada, orden de hermanos y desempate por `id`
-- [ ] T022 [P] Escribir `JsonMessageRepositoryTest` en `backend/src/test/java/com/pulseboard/forum/repository/JsonMessageRepositoryTest.java`: arranque sin archivo, creación perezosa, ida y vuelta de lectura/escritura, fallo explícito ante JSON corrupto y ante `schemaVersion` desconocida
+- [X] T021 [P] Escribir `MessageTreeTest` en `backend/src/test/java/com/pulseboard/forum/domain/MessageTreeTest.java`: ensamblado desde lista desordenada, determinismo del resultado, profundidad derivada, orden de hermanos y desempate por `id`
+- [X] T022 [P] Escribir `JsonMessageRepositoryTest` en `backend/src/test/java/com/pulseboard/forum/repository/JsonMessageRepositoryTest.java`: arranque sin archivo, creación perezosa, ida y vuelta de lectura/escritura, fallo explícito ante JSON corrupto y ante `schemaVersion` desconocida
 
 ### Front-end: núcleo y armazón de la aplicación
 
-- [ ] T023 [P] Crear los modelos del front-end en `frontend/src/app/core/models/` (`message.model.ts`, `participant.model.ts`, `forum-config.model.ts`) espejando el contrato REST
-- [ ] T024 [P] Implementar `ForumApiService` en `frontend/src/app/core/services/forum-api.service.ts` como único punto de acceso a la API, decidiendo sobre el campo `code` de los errores y nunca sobre `message` (Principio II)
-- [ ] T025 Implementar `ForumConfigService` en `frontend/src/app/core/services/forum-config.service.ts` consumiendo `GET /api/config` al arrancar y exponiendo los límites. MUST NOT declarar ninguno de esos números por su cuenta (FR-018)
-- [ ] T026 Configurar el arranque de la aplicación en `frontend/src/app/app.config.ts`: registrar `provideHttpClient()` y `provideRouter(routes)`, y cargar la configuración del foro antes del primer render
-- [ ] T027 Definir las rutas en `frontend/src/app/app.routes.ts`: ruta raíz a la lista de conversaciones y ruta de identidad, con redirección a identidad mientras no haya una establecida
-- [ ] T028 Crear el armazón en `frontend/src/app/app.component.ts|html|css` con el `<router-outlet>`, la cabecera de la aplicación y el indicador de identidad activa; verificar que `frontend/src/main.ts` arranca contra `app.config.ts`
-- [ ] T029 **Esqueleto vertical**: verificar con el back-end levantado que `http://localhost:4200` carga el armazón y que `ForumConfigService` obtiene `GET /api/config` **a través del proxy**, mostrando el `maxDepth` recibido. Es la primera prueba de que los dos lados se hablan
+- [X] T023 [P] Crear los modelos del front-end en `frontend/src/app/core/models/forum.models.ts` espejando el contrato REST. **Nota de implementación**: se agruparon en un único archivo en lugar de tres, porque son interfaces cortas de un mismo contrato y separarlas habría añadido ficheros sin aportar claridad (Principio IV)
+- [X] T024 [P] Implementar `ForumApiService` en `frontend/src/app/core/services/forum-api.service.ts` como único punto de acceso a la API, decidiendo sobre el campo `code` de los errores y nunca sobre `message` (Principio II)
+- [X] T025 Implementar `ForumConfigService` en `frontend/src/app/core/services/forum-config.service.ts` consumiendo `GET /api/config` al arrancar y exponiendo los límites. MUST NOT declarar ninguno de esos números por su cuenta (FR-018)
+- [X] T026 Configurar el arranque de la aplicación en `frontend/src/app/app.config.ts`: registrar `provideHttpClient()` y `provideRouter(routes)`, y cargar la configuración del foro antes del primer render
+- [X] T027 Definir las rutas en `frontend/src/app/app.routes.ts`: ruta raíz a la lista de conversaciones y ruta de identidad, con redirección a identidad mientras no haya una establecida
+- [X] T028 Crear el armazón en `frontend/src/app/app.ts|html|css` con el `<router-outlet>`, la cabecera de la aplicación y el indicador de identidad activa; verificar que `frontend/src/main.ts` arranca contra `app.config.ts`
+- [X] T029 **Esqueleto vertical**: verificar con el back-end levantado que `http://localhost:4200` carga el armazón y que `ForumConfigService` obtiene `GET /api/config` **a través del proxy**, mostrando el `maxDepth` recibido. Es la primera prueba de que los dos lados se hablan
 
 **Checkpoint**: dominio, persistencia, contrato y aplicación arrancable listos. Las historias pueden empezar.
 
@@ -96,12 +96,12 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 **Independent Test**: abrir la aplicación sin identidad previa, completar nombre y avatar, y verificar que quedan asociados y visibles. No requiere que exista ningún mensaje.
 
-- [ ] T030 [P] [US1] Implementar `IdentityService` en `frontend/src/app/core/services/identity.service.ts` persistiendo `{name, avatar}` en `localStorage` y exponiendo si hay identidad establecida (`research.md` R9, FR-004)
-- [ ] T031 [US1] Crear el componente de identidad en `frontend/src/app/features/identity/identity.component.ts|html|css` con campo de nombre y selector de avatar, que bloquea publicar mientras no haya identidad (FR-001)
-- [ ] T032 [US1] Aplicar en `frontend/src/app/features/identity/identity.component.ts` la validación del nombre: rechazar vacío o solo espacios, y limitar a `maxAuthorNameLength` (40) leído de `ForumConfigService`, nunca escrito a mano (FR-002)
-- [ ] T033 [US1] Renderizar en `frontend/src/app/features/identity/identity.component.html` el conjunto de avatares que devuelve `GET /api/config`, con la selección reflejada visualmente antes de confirmar (FR-003)
-- [ ] T034 [US1] Permitir cambiar nombre y avatar desde `frontend/src/app/features/identity/identity.component.ts`, sin alterar la autoría de lo ya publicado (FR-005)
-- [ ] T035 [US1] Mostrar el nombre como texto literal, sin interpretar marcado incrustado, en `frontend/src/app/features/identity/identity.component.html` (FR-024)
+- [X] T030 [P] [US1] Implementar `IdentityService` en `frontend/src/app/core/services/identity.service.ts` persistiendo `{name, avatar}` en `localStorage` y exponiendo si hay identidad establecida (`research.md` R9, FR-004)
+- [X] T031 [US1] Crear el componente de identidad en `frontend/src/app/features/identity/identity.component.ts|html|css` con campo de nombre y selector de avatar, que bloquea publicar mientras no haya identidad (FR-001)
+- [X] T032 [US1] Aplicar en `frontend/src/app/features/identity/identity.component.ts` la validación del nombre: rechazar vacío o solo espacios, y limitar a `maxAuthorNameLength` (40) leído de `ForumConfigService`, nunca escrito a mano (FR-002)
+- [X] T033 [US1] Renderizar en `frontend/src/app/features/identity/identity.component.html` el conjunto de avatares que devuelve `GET /api/config`, con la selección reflejada visualmente antes de confirmar (FR-003)
+- [X] T034 [US1] Permitir cambiar nombre y avatar desde `frontend/src/app/features/identity/identity.component.ts`, sin alterar la autoría de lo ya publicado (FR-005)
+- [X] T035 [US1] Mostrar el nombre como texto literal, sin interpretar marcado incrustado, en `frontend/src/app/features/identity/identity.component.html` (FR-024)
 
 **Checkpoint**: US1 funciona y se valida sola.
 
@@ -115,23 +115,23 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 ### Back-end
 
-- [ ] T036 [P] [US2] Escribir `MessageServiceTest` en `backend/src/test/java/com/pulseboard/forum/service/MessageServiceTest.java` cubriendo las validaciones de contenido y nombre, y la de avatar contra el conjunto configurado
-- [ ] T037 [US2] Implementar `MessageService` en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` con la creación de mensajes: generar `id` UUID v4 (**FR-012**) y `createdAt` (**FR-011**) en el servidor, ignorando los que envíe el cliente
-- [ ] T038 [US2] Añadir en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` las validaciones de contenido: `1..2000 caracteres tras recortar espacios`, con `CONTENT_EMPTY` (400) y `CONTENT_TOO_LONG` (400) (FR-009, FR-010, **SC-007**)
-- [ ] T039 [US2] Añadir en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` las validaciones de autoría: nombre `1..40 caracteres tras recortar espacios` con `AUTHOR_NAME_EMPTY` y `AUTHOR_NAME_TOO_LONG` (400), y avatar perteneciente al conjunto con `AVATAR_INVALID` (400) (FR-002, FR-003)
-- [ ] T040 [US2] Copiar en cada mensaje el `authorName` y el `authorAvatar` vigentes al publicar, en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java`, para que la autoría no dependa de una sesión posterior (FR-006)
-- [ ] T041 [US2] Implementar `POST /api/messages` con `parentId` ausente o `null` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java`, respondiendo `201` con cabecera `Location: /api/messages/{id}` (FR-007)
-- [ ] T042 [US2] Implementar `GET /api/conversations` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java` devolviendo los árboles completos; foro vacío responde `200` con `"conversations": []`, nunca un error (FR-025)
+- [X] T036 [P] [US2] Escribir `MessageServiceTest` en `backend/src/test/java/com/pulseboard/forum/service/MessageServiceTest.java` cubriendo las validaciones de contenido y nombre, y la de avatar contra el conjunto configurado
+- [X] T037 [US2] Implementar `MessageService` en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` con la creación de mensajes: generar `id` UUID v4 (**FR-012**) y `createdAt` (**FR-011**) en el servidor, ignorando los que envíe el cliente
+- [X] T038 [US2] Añadir en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` las validaciones de contenido: `1..2000 caracteres tras recortar espacios`, con `CONTENT_EMPTY` (400) y `CONTENT_TOO_LONG` (400) (FR-009, FR-010, **SC-007**)
+- [X] T039 [US2] Añadir en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` las validaciones de autoría: nombre `1..40 caracteres tras recortar espacios` con `AUTHOR_NAME_EMPTY` y `AUTHOR_NAME_TOO_LONG` (400), y avatar perteneciente al conjunto con `AVATAR_INVALID` (400) (FR-002, FR-003)
+- [X] T040 [US2] Copiar en cada mensaje el `authorName` y el `authorAvatar` vigentes al publicar, en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java`, para que la autoría no dependa de una sesión posterior (FR-006)
+- [X] T041 [US2] Implementar `POST /api/messages` con `parentId` ausente o `null` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java`, respondiendo `201` con cabecera `Location: /api/messages/{id}` (FR-007)
+- [X] T042 [US2] Implementar `GET /api/conversations` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java` devolviendo los árboles completos; foro vacío responde `200` con `"conversations": []`, nunca un error (FR-025)
 
 ### Front-end
 
-- [ ] T043 [P] [US2] Crear `message-node.component` **recursivo** en `frontend/src/app/features/conversation/message-node.component.ts|html|css`, que renderiza un mensaje (autor, avatar, contenido, fecha) y **se invoca a sí mismo** sobre `replies`. MUST NOT contener el número de niveles (Principio I). Es el renderizador que US2, US3 y US4 comparten
-- [ ] T044 [US2] Crear `conversation.component` en `frontend/src/app/features/conversation/conversation.component.ts|html|css` que renderiza un árbol completo delegando en `message-node.component`
-- [ ] T045 [US2] Crear `conversation-list.component` en `frontend/src/app/features/conversation-list/conversation-list.component.ts|html|css` consumiendo `GET /api/conversations` y delegando cada árbol en `conversation.component` (FR-020)
-- [ ] T046 [US2] Crear `message-form.component` en `frontend/src/app/features/conversation/message-form.component.ts|html|css` para publicar mensajes principales, conservando lo escrito cuando la publicación se rechaza (FR-009)
-- [ ] T047 [US2] Enlazar las rutas de `frontend/src/app/app.routes.ts` con los componentes reales: identidad y lista de conversaciones, con la redirección a identidad operativa
-- [ ] T048 [US2] Reflejar el mensaje recién publicado en la vista sin recarga manual desde `frontend/src/app/features/conversation-list/conversation-list.component.ts` (FR-026, SC-006)
-- [ ] T049 [US2] Mostrar el estado vacío comprensible cuando no hay mensajes, en `frontend/src/app/features/conversation-list/conversation-list.component.html` (FR-025)
+- [X] T043 [P] [US2] Crear `message-node.component` **recursivo** en `frontend/src/app/features/conversation/message-node.component.ts|html|css`, que renderiza un mensaje (autor, avatar, contenido, fecha) y **se invoca a sí mismo** sobre `replies`. MUST NOT contener el número de niveles (Principio I). Es el renderizador que US2, US3 y US4 comparten
+- [X] T044 [US2] Crear `conversation.component` en `frontend/src/app/features/conversation/conversation.component.ts|html|css` que renderiza un árbol completo delegando en `message-node.component`
+- [X] T045 [US2] Crear `conversation-list.component` en `frontend/src/app/features/conversation-list/conversation-list.component.ts|html|css` consumiendo `GET /api/conversations` y delegando cada árbol en `conversation.component` (FR-020)
+- [X] T046 [US2] Crear `message-form.component` en `frontend/src/app/features/conversation/message-form.component.ts|html|css` para publicar mensajes principales, conservando lo escrito cuando la publicación se rechaza (FR-009)
+- [X] T047 [US2] Enlazar las rutas de `frontend/src/app/app.routes.ts` con los componentes reales: identidad y lista de conversaciones, con la redirección a identidad operativa
+- [X] T048 [US2] Reflejar el mensaje recién publicado en la vista sin recarga manual desde `frontend/src/app/features/conversation-list/conversation-list.component.ts` (FR-026, SC-006)
+- [X] T049 [US2] Mostrar el estado vacío comprensible cuando no hay mensajes, en `frontend/src/app/features/conversation-list/conversation-list.component.html` (FR-025)
 
 **Checkpoint**: US1 y US2 funcionan. **Esto es el MVP: la aplicación se abre, se declara identidad, se publica y se lee.**
 
@@ -143,14 +143,14 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 **Independent Test**: con al menos un mensaje publicado, responder y verificar que queda vinculado a él y no a otro.
 
-- [ ] T050 [P] [US3] Ampliar `MessageServiceTest` en `backend/src/test/java/com/pulseboard/forum/service/MessageServiceTest.java` con: padre inexistente, respuesta en nivel 4 aceptada, respuesta sobre nivel 5 rechazada, y que ningún rechazo persista el mensaje
-- [ ] T051 [US3] Validar en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` que `parentId` referencia un mensaje existente, respondiendo `404` con `PARENT_NOT_FOUND` (FR-014)
-- [ ] T052 [US3] Validar en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` que la profundidad resultante no excede `forum.max-depth`, respondiendo `422` con `MAX_DEPTH_EXCEEDED`. Leer el límite de `ForumProperties`, nunca escribir el número (FR-016, FR-017, FR-018, **SC-008**)
-- [ ] T053 [US3] Extender `POST /api/messages` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java` para aceptar `parentId` con valor y crear respuestas (FR-008, FR-013)
-- [ ] T054 [US3] Añadir la acción de responder por mensaje en `frontend/src/app/features/conversation/message-node.component.ts|html`, reutilizando `message-form.component`
-- [ ] T055 [US3] Ocultar la acción de responder cuando `depth` del mensaje alcanza el `maxDepth` de `ForumConfigService`, en `frontend/src/app/features/conversation/message-node.component.ts`. Comparar contra el valor consultado, nunca contra un número propio (FR-017, FR-018)
-- [ ] T056 [US3] Manejar en `frontend/src/app/core/services/forum-api.service.ts` la respuesta `422 MAX_DEPTH_EXCEEDED` refrescando la conversación, en lugar de mostrarla como error de validación de formulario
-- [ ] T057 [US3] Manejar en `frontend/src/app/core/services/forum-api.service.ts` la respuesta `404 PARENT_NOT_FOUND` informando que el mensaje destino no está disponible (FR-014)
+- [X] T050 [P] [US3] Ampliar `MessageServiceTest` en `backend/src/test/java/com/pulseboard/forum/service/MessageServiceTest.java` con: padre inexistente, respuesta en nivel 4 aceptada, respuesta sobre nivel 5 rechazada, y que ningún rechazo persista el mensaje
+- [X] T051 [US3] Validar en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` que `parentId` referencia un mensaje existente, respondiendo `404` con `PARENT_NOT_FOUND` (FR-014)
+- [X] T052 [US3] Validar en `backend/src/main/java/com/pulseboard/forum/service/MessageService.java` que la profundidad resultante no excede `forum.max-depth`, respondiendo `422` con `MAX_DEPTH_EXCEEDED`. Leer el límite de `ForumProperties`, nunca escribir el número (FR-016, FR-017, FR-018, **SC-008**)
+- [X] T053 [US3] Extender `POST /api/messages` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java` para aceptar `parentId` con valor y crear respuestas (FR-008, FR-013)
+- [X] T054 [US3] Añadir la acción de responder por mensaje en `frontend/src/app/features/conversation/message-node.component.ts|html`, reutilizando `message-form.component`
+- [X] T055 [US3] Ocultar la acción de responder cuando `depth` del mensaje alcanza el `maxDepth` de `ForumConfigService`, en `frontend/src/app/features/conversation/message-node.component.ts`. Comparar contra el valor consultado, nunca contra un número propio (FR-017, FR-018)
+- [X] T056 [US3] Manejar en `frontend/src/app/core/services/forum-api.service.ts` la respuesta `422 MAX_DEPTH_EXCEEDED` refrescando la conversación, en lugar de mostrarla como error de validación de formulario
+- [X] T057 [US3] Manejar en `frontend/src/app/core/services/forum-api.service.ts` la respuesta `404 PARENT_NOT_FOUND` informando que el mensaje destino no está disponible (FR-014)
 
 **Checkpoint**: US1, US2 y US3 funcionan por separado.
 
@@ -164,12 +164,12 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 > El renderizador recursivo ya existe desde T043. Esta fase le da el tratamiento visual que vuelve legible la jerarquía.
 
-- [ ] T058 [US4] Aplicar la subordinación visual por sangrado en `frontend/src/app/features/conversation/message-node.component.css`, de modo que la relación padre-hijo sea evidente sin inferirla del orden de lectura (FR-020)
-- [ ] T059 [US4] Dejar de aumentar el sangrado a partir del nivel en que dejaría de ser legible, conservando la relación padre-hijo de forma inequívoca, en `frontend/src/app/features/conversation/message-node.component.css` (FR-022)
-- [ ] T060 [US4] Garantizar que no hay desbordamiento horizontal desde 360 px de ancho, en `frontend/src/app/features/conversation/message-node.component.css` (**SC-005**)
-- [ ] T061 [P] [US4] Mostrar nombre y avatar del autor junto a cada mensaje en `frontend/src/app/features/conversation/message-node.component.html` (FR-023, **SC-004**)
-- [ ] T062 [P] [US4] Renderizar el contenido y el nombre como texto literal, sin interpretar marcado incrustado, en `frontend/src/app/features/conversation/message-node.component.html` (FR-024)
-- [ ] T063 [P] [US4] Distinguir visualmente dónde termina una rama y empieza otra entre hermanos, en `frontend/src/app/features/conversation/message-node.component.css`
+- [X] T058 [US4] Aplicar la subordinación visual por sangrado en `frontend/src/app/features/conversation/message-node.component.css`, de modo que la relación padre-hijo sea evidente sin inferirla del orden de lectura (FR-020)
+- [X] T059 [US4] Dejar de aumentar el sangrado a partir del nivel en que dejaría de ser legible, conservando la relación padre-hijo de forma inequívoca, en `frontend/src/app/features/conversation/message-node.component.css` (FR-022)
+- [X] T060 [US4] Garantizar que no hay desbordamiento horizontal desde 360 px de ancho, en `frontend/src/app/features/conversation/message-node.component.css` (**SC-005**)
+- [X] T061 [P] [US4] Mostrar nombre y avatar del autor junto a cada mensaje en `frontend/src/app/features/conversation/message-node.component.html` (FR-023, **SC-004**)
+- [X] T062 [P] [US4] Renderizar el contenido y el nombre como texto literal, sin interpretar marcado incrustado, en `frontend/src/app/features/conversation/message-node.component.html` (FR-024)
+- [X] T063 [P] [US4] Distinguir visualmente dónde termina una rama y empieza otra entre hermanos, en `frontend/src/app/features/conversation/message-node.component.css`
 
 **Checkpoint**: la jerarquía se lee correctamente hasta el nivel máximo.
 
@@ -181,11 +181,11 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 **Independent Test**: publicar contenido anidado, reiniciar la aplicación y verificar que todo sigue presente.
 
-- [ ] T064 [P] [US5] Escribir en `backend/src/test/java/com/pulseboard/forum/repository/JsonMessageRepositoryTest.java` la prueba de persistencia entre reinicios: escribir un árbol, releer desde disco y comparar contenido, jerarquía y autoría (FR-027, **SC-003**)
-- [ ] T065 [P] [US5] Escribir en `backend/src/test/java/com/pulseboard/forum/repository/JsonMessageRepositoryTest.java` la prueba de escrituras concurrentes: publicaciones solapadas conservan todos los mensajes, sin que una descarte o sobrescriba otra (FR-030, **SC-009**)
-- [ ] T066 [US5] Implementar `GET /api/conversations/{id}` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java`, respondiendo `404 CONVERSATION_NOT_FOUND` si no existe o si el `id` corresponde a una respuesta y no a una raíz
-- [ ] T067 [US5] Verificar el arranque con `backend/data/messages.json` ausente: foro vacío que invita a publicar, sin error (FR-028)
-- [ ] T068 [US5] Verificar el arranque con `backend/data/messages.json` corrupto (JSON malformado y `schemaVersion` desconocida): fallo explícito indicando ruta y problema, sin arrancar en silencio con datos vacíos o parciales (FR-029)
+- [X] T064 [P] [US5] Escribir en `backend/src/test/java/com/pulseboard/forum/repository/JsonMessageRepositoryTest.java` la prueba de persistencia entre reinicios: escribir un árbol, releer desde disco y comparar contenido, jerarquía y autoría (FR-027, **SC-003**)
+- [X] T065 [P] [US5] Escribir en `backend/src/test/java/com/pulseboard/forum/repository/JsonMessageRepositoryTest.java` la prueba de escrituras concurrentes: publicaciones solapadas conservan todos los mensajes, sin que una descarte o sobrescriba otra (FR-030, **SC-009**)
+- [X] T066 [US5] Implementar `GET /api/conversations/{id}` en `backend/src/main/java/com/pulseboard/forum/web/MessageController.java`, respondiendo `404 CONVERSATION_NOT_FOUND` si no existe o si el `id` corresponde a una respuesta y no a una raíz
+- [X] T067 [US5] Verificar el arranque con `backend/data/messages.json` ausente: foro vacío que invita a publicar, sin error (FR-028)
+- [X] T068 [US5] Verificar el arranque con `backend/data/messages.json` corrupto (JSON malformado y `schemaVersion` desconocida): fallo explícito indicando ruta y problema, sin arrancar en silencio con datos vacíos o parciales (FR-029)
 
 **Checkpoint**: las cinco historias funcionan por separado.
 
@@ -193,15 +193,15 @@ Aplicación web con dos proyectos hermanos, según `plan.md`:
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T069 [P] Escribir pruebas de front-end en `frontend/src/app/core/services/identity.service.spec.ts` y `frontend/src/app/features/conversation/message-node.component.spec.ts`: persistencia de la identidad en `localStorage` y renderizado recursivo de un árbol de 5 niveles. Reemplazan el spec de ejemplo que genera `ng new`, para que `npm test` pruebe algo real
-- [ ] T070 [P] Escribir el `README.md` en la raíz con instrucciones de ejecución verificadas: prerrequisitos, los dos comandos de arranque y las notas sobre `JAVA_HOME` y la versión de Node
-- [ ] T071 [P] Documentar la arquitectura y el flujo front-end ↔ back-end en `README.md`
-- [ ] T072 Ejecutar los escenarios V1..V6 de `specs/001-foro-jerarquico/quickstart.md` de principio a fin y corregir lo que falle (**SC-001, SC-002**)
-- [ ] T073 Ejecutar `.\mvnw.cmd test` en `backend/` y `npm test` en `frontend/`, y dejar ambos en verde
-- [ ] T074 Verificar que `backend/data/messages.json` no quedó versionado y que el Maven Wrapper sí lo está
-- [ ] T075 Revisar que ningún componente del front-end ni validación del back-end incorpora el número 5 por su cuenta: el único lugar es `backend/src/main/resources/application.yml` (FR-018, Principio I)
-- [ ] T076 Revisar que ninguna capa fuera de `backend/src/main/java/com/pulseboard/forum/repository/` accede al archivo (Principio III)
-- [ ] T077 Verificar que el contrato de `specs/001-foro-jerarquico/contracts/rest-api.md` coincide con lo implementado; si divergió, actualizarlo en el mismo cambio (Principio II)
+- [X] T069 [P] Escribir pruebas de front-end en `frontend/src/app/core/services/identity.service.spec.ts` y `frontend/src/app/features/conversation/message-node.component.spec.ts`: persistencia de la identidad en `localStorage` y renderizado recursivo de un árbol de 5 niveles. Reemplazan el spec de ejemplo que genera `ng new`, para que `npm test` pruebe algo real
+- [X] T070 [P] Escribir el `README.md` en la raíz con instrucciones de ejecución verificadas: prerrequisitos, los dos comandos de arranque y las notas sobre `JAVA_HOME` y la versión de Node
+- [X] T071 [P] Documentar la arquitectura y el flujo front-end ↔ back-end en `README.md`
+- [X] T072 Ejecutar los escenarios V1..V6 de `specs/001-foro-jerarquico/quickstart.md` de principio a fin y corregir lo que falle (**SC-001, SC-002**)
+- [X] T073 Ejecutar `.\mvnw.cmd test` en `backend/` y `npm test` en `frontend/`, y dejar ambos en verde
+- [X] T074 Verificar que `backend/data/messages.json` no quedó versionado y que el Maven Wrapper sí lo está
+- [X] T075 Revisar que ningún componente del front-end ni validación del back-end incorpora el número 5 por su cuenta: el único lugar es `backend/src/main/resources/application.yml` (FR-018, Principio I)
+- [X] T076 Revisar que ninguna capa fuera de `backend/src/main/java/com/pulseboard/forum/repository/` accede al archivo (Principio III)
+- [X] T077 Verificar que el contrato de `specs/001-foro-jerarquico/contracts/rest-api.md` coincide con lo implementado; si divergió, actualizarlo en el mismo cambio (Principio II)
 
 ---
 

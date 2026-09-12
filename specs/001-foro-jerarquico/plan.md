@@ -23,13 +23,13 @@ al back-end el límite de anidación en lugar de declararlo por su cuenta.
 **Language/Version**: Java 21 (LTS, JDK 21.0.6 verificado en el entorno) · TypeScript 5.x
 sobre Node.js ≥22.12.0 (v22.15.1 verificado)
 
-**Primary Dependencies**: Spring Boot 4.1.1 (`spring-boot-starter-web`, incluye Jackson) ·
+**Primary Dependencies**: Spring Boot 4.1.1 (`spring-boot-starter-webmvc`, incluye Jackson 3) ·
 Angular 21.2.x
 
 **Storage**: archivo JSON único en disco (`data/messages.json`). Sin base de datos, sin ORM,
 sin almacén embebido (TC-03)
 
-**Testing**: JUnit 5 vía `spring-boot-starter-test`, concentrado en ensamblado del árbol,
+**Testing**: JUnit 5 vía `spring-boot-starter-webmvc-test`, concentrado en ensamblado del árbol,
 derivación de profundidad, aplicación del límite y escritura atómica. En el front-end, el
 arnés que genera `ng new` por defecto
 
@@ -53,8 +53,9 @@ usuario interactuando a la vez · 5 historias de usuario, 30 requisitos funciona
 - Angular se fija en **21.2.x**, no en la 22.1.8 más reciente: esta última exige Node
   `^22.22.3` y el entorno tiene 22.15.1. Angular 21.2.x pide `^22.12.0` y sí se cumple.
 - El back-end se construye con **Maven Wrapper** versionado, porque no hay Maven ni Gradle
-  instalados. Riesgo abierto: `JAVA_HOME` no está definido y `mvnw.cmd` lo consulta antes
-  de recurrir al `PATH`; debe verificarse en el primer arranque.
+  instalados. El riesgo que se anticipó sobre `JAVA_HOME` quedó descartado al implementar:
+  el wrapper que genera Initializr es de tipo `only-script` y localiza el JDK por sí mismo
+  (ver `research.md` R3).
 
 ## Constitution Check
 

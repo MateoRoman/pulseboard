@@ -135,6 +135,32 @@ class JsonMessageRepositoryTest {
         assertThat(json).doesNotContain("\"replies\"").doesNotContain("\"children\"");
         // La profundidad no se persiste (Principio I).
         assertThat(json).doesNotContain("\"depth\"");
+        // Tampoco se persiste si es raíz: sería un dato derivado de parentId capaz de
+        // contradecirlo. Jackson lo escribiría solo por existir isRoot().
+        assertThat(json).doesNotContain("\"root\"");
+
+        // El archivo solo contiene las claves del esquema documentado.
+        assertThat(json)
+                .contains("\"id\"")
+                .contains("\"content\"")
+                .contains("\"authorName\"")
+                .contains("\"authorAvatar\"")
+                .contains("\"createdAt\"");
+    }
+
+    @Test
+    @DisplayName("un archivo escrito por una versión anterior con campos extra se sigue leyendo")
+    void unknownFieldsInStoredMessagesAreIgnored() throws IOException {
+        Files.createDirectories(dataFile.getParent());
+        Files.writeString(
+                dataFile,
+                """
+                {"schemaVersion":1,"messages":[{"id":"11111111-1111-4111-8111-111111111111",
+                "content":"hola","authorName":"Mateo","authorAvatar":"avatar-01",
+                "createdAt":"2026-09-11T10:00:00.000Z","parentId":null,"root":true}]}
+                """);
+
+        assertThat(repository.findAll()).hasSize(1);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.pulseboard.forum.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -35,7 +36,15 @@ public record Message(
         Instant createdAt,
         UUID parentId) {
 
-    /** Un mensaje principal es exactamente aquel que no referencia a ningún padre. */
+    /**
+     * Un mensaje principal es exactamente aquel que no referencia a ningún padre.
+     *
+     * <p>No se serializa: Jackson interpretaría este método como una propiedad y escribiría
+     * un campo {@code root} en el archivo. Sería un dato derivado de {@code parentId}
+     * capaz de contradecirlo, que es justo lo que el Principio I prohíbe, y además no
+     * forma parte del esquema documentado en {@code data-model.md}.
+     */
+    @JsonIgnore
     public boolean isRoot() {
         return parentId == null;
     }
