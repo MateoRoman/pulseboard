@@ -1,0 +1,48 @@
+<article class="node" [style.--indent]="indentLevel()" [attr.data-depth]="message().depth">
+  <div class="message">
+    <app-avatar [avatar]="message().authorAvatar" [name]="message().authorName" [size]="34" />
+
+    <div class="body">
+      <header class="meta">
+        <!-- Interpolado, no innerHTML: el nombre y el contenido se muestran
+             como texto literal aunque contengan marcado (FR-024). -->
+        <strong class="author">{{ message().authorName }}</strong>
+        <time class="date" [attr.datetime]="message().createdAt">
+          {{ formatDate(message().createdAt) }}
+        </time>
+        <span class="level" title="Nivel de anidación">N{{ message().depth }}</span>
+      </header>
+
+      <p class="content">{{ message().content }}</p>
+
+      <footer class="actions">
+        @if (canReply()) {
+          <button type="button" class="link" (click)="toggleReply()">
+            {{ replying() ? 'Cancelar' : 'Responder' }}
+          </button>
+        } @else {
+          <span class="max-depth">Nivel máximo alcanzado</span>
+        }
+      </footer>
+
+      @if (replying()) {
+        <app-message-form
+          [parentId]="message().id"
+          placeholder="Escribí tu respuesta…"
+          submitLabel="Responder"
+          (published)="onPublished()"
+        />
+      }
+    </div>
+  </div>
+
+  @if (message().replies.length) {
+    <div class="replies">
+      @for (reply of message().replies; track reply.id) {
+        <!-- Recursión: el componente se invoca a sí mismo. No hay ningún número
+             de niveles escrito en ninguna parte (Principio I). -->
+        <app-message-node [message]="reply" (replied)="replied.emit()" />
+      }
+    </div>
+  }
+</article>

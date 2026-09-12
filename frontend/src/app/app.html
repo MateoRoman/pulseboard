@@ -1,0 +1,18 @@
+<header class="app-header">
+  <a class="brand" routerLink="/">
+    <span class="brand-mark" aria-hidden="true">◈</span>
+    <span class="brand-name">Pulseboard</span>
+  </a>
+
+  @if (identity.participant(); as participant) {
+    <a class="identity" routerLink="/identidad" title="Cambiar identidad">
+      <app-avatar [avatar]="participant.avatar" [name]="participant.name" [size]="28" />
+      <!-- El nombre se interpola, nunca se inyecta como HTML: se muestra literal (FR-024). -->
+      <span class="identity-name">{{ participant.name }}</span>
+    </a>
+  }
+</header>
+
+<main class="app-main">
+  <router-outlet />
+</main>

@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: forum
+
+server:
+  port: 8080
+
+# Parámetros del foro.
+#
+# IMPORTANTE: este archivo es la ÚNICA fuente del límite de anidación (FR-018).
+# Ni el back-end ni el front-end deben escribir el número 5 en ningún otro lugar:
+# el servidor lo lee de aquí para validar y el cliente lo consulta por GET /api/config.
+forum:
+  # Profundidad máxima contando el mensaje principal como nivel 1.
+  # Con 5, un mensaje principal admite hasta 4 respuestas encadenadas por debajo.
+  #
+  # Valores admitidos:
+  #   3   -> tres niveles
+  #   5   -> cinco niveles
+  #   0   -> ILIMITADO (también cualquier valor negativo)
+  #
+  # Cambiar este número es lo único que hace falta para cambiar el comportamiento:
+  # el servidor lo usa para validar y el front-end lo consulta por GET /api/config.
+  max-depth: 5
+  max-content-length: 2000
+  max-author-name-length: 40
+  data-file: data/messages.json
+  avatars:
+    - avatar-01
+    - avatar-02
+    - avatar-03
+    - avatar-04
+    - avatar-05
+    - avatar-06
+    - avatar-07
+    - avatar-08
+
+logging:
+  level:
+    com.pulseboard.forum: INFO
