@@ -238,14 +238,10 @@ refactor.
 |---|--------|----------|
 | 1 | *"Instalar Spec Kit y arrancar el proyecto. Si falla algún paso, pará y mostrame el error exacto — no asumas que ya tengo nada."* | Forzar verificación del entorno en lugar de suposiciones |
 | 2 | La premisa completa + stack + estrategia de ramas `dev`/`main` | Constitución del proyecto |
-| 3 | *"No revises el pdf, yo te iré proporcionando la información"* | Acotar el contexto que la IA podía usar |
-| 4 | *"Quité el principio 5; no ates la constitución al ejercicio, sino al alcance del aplicativo"* | Podar el documento de gobierno |
-| 5 | Alcance AL-01..AL-04 + lista explícita de lo que queda **fuera** | Especificación |
-| 6 | *"Validá que las tareas produzcan un aplicativo funcional, que se respete la persistencia en archivo JSON, y que cubra toda la premisa"* | Auditoría con criterios explícitos |
-| 7 | *"Hacé las correcciones para que dé como resultado un aplicativo funcional que se pueda probar"* | Corrección e implementación |
+| 3 | Alcance AL-01..AL-04 + lista explícita de lo que queda **fuera** | Especificación |
+| 4 | *"Validá que las tareas produzcan un aplicativo funcional, que se respete la persistencia en archivo JSON, y que cubra toda la premisa"* | Auditoría con criterios explícitos |
+| 5 | *"Hacé las correcciones para que dé como resultado un aplicativo funcional que se pueda probar"* | Corrección e implementación |
 
-El prompt 6 fue el de mayor rendimiento: pedir una validación **con criterios concretos**,
-en vez de un "¿está bien?" genérico.
 
 ## Cómo se refinaron los resultados
 
