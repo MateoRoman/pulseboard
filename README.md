@@ -824,6 +824,163 @@ implementa la carga bajo demanda.
 
 ---
 
+# Parte 4 — Cambio funcional
+
+## Punto de partida
+
+La primera versión ya leía el límite de `application.yml` en lugar de tenerlo escrito en el
+código. Pero **no admitía «ilimitado»**:
+
+```java
+if (parent.depth() >= properties.maxDepth()) {
+    throw ForumException.maxDepthExceeded(properties.maxDepth());
+}
+```
+
+Con `maxDepth` como `int`, cambiar entre 3 y 5 era editar una línea; expresar «sin tope» era
+imposible sin tocar código.
+
+---
+
+## Qué partes del código se modificaron
+
+Cinco archivos de producción. Ninguno es un componente de UI ni una regla de negocio
+existente.
+
+### 1. `ForumProperties.java` — el convenio, en un solo método
+
+```java
+public boolean hasDepthLimit() {
+    return maxDepth > 0;
+}
+```
+
+### 2. `MessageService.java` — una condición añadida
+
+```diff
+- if (parent.depth() >= properties.maxDepth()) {
++ if (properties.hasDepthLimit() && parent.depth() >= properties.maxDepth()) {
+      throw ForumException.maxDepthExceeded(properties.maxDepth());
+  }
+```
+
+### 3. `ConfigResponse.java` — `int` pasa a `Integer`
+
+```java
+- public record ConfigResponse(int maxDepth, …)
++ public record ConfigResponse(Integer maxDepth, …)
+
+  maxDepth = properties.hasDepthLimit() ? properties.maxDepth() : null;
+```
+
+### 4. `forum-config.service.ts` — tres estados, en orden
+
+```typescript
+canReplyTo(depth: number): boolean {
+  if (!this.loaded) return false;        // sin cargar → no ofrecer
+  if (this.unlimitedDepth) return true;  // sin límite → siempre
+  return depth < this.maxDepth!;         // con tope → comparar
+}
+```
+
+### 5. `application.yml` — el convenio documentado
+
+```yaml
+  #   3   -> tres niveles
+  #   5   -> cinco niveles
+  #   0   -> ILIMITADO (también cualquier valor negativo)
+  max-depth: 5
+```
+
+**Lo que no hizo falta tocar**: `MessageNodeComponent`, `MessageTree`,
+`JsonMessageRepository`, el modelo `Message` ni ninguna plantilla HTML. El renderizador
+recursivo funcionó con profundidad 14 sin modificaciones.
+
+---
+
+## Por qué se realizaron esos cambios
+
+**`0` significa ilimitado, y no `Integer.MAX_VALUE`.** Es un valor que una persona escribe a
+mano en un YAML. Pedirle `2147483647` para decir «sin límite» sería un enigma, y cualquier
+número grande arbitrario sigue siendo un tope disfrazado, con un comportamiento distinto al
+de no tener tope.
+
+**Un método `hasDepthLimit()` en lugar de comparar `maxDepth > 0` donde haga falta.** Si el
+convenio se repite, cambiarlo obliga a encontrar todas las repeticiones. Concentrado en un
+método tiene una sola definición, por la misma razón por la que el número vive en un solo
+archivo.
+
+**`null` en el JSON, no `0`.** `0` obligaría al cliente a conocer el convenio del servidor y
+expone un número sobre el que se podría hacer aritmética por accidente: `depth < 0` es
+siempre falso, así que nunca se podría responder. `null` es inequívoco.
+
+**El orden de evaluación en `canReplyTo`.** Éste fue el punto delicado: `maxDepth === null`
+significa **dos cosas opuestas** según el estado — «todavía no cargó la configuración» y «no
+hay límite». Si se interpretaran igual, la aplicación ofrecería responder antes de saber si
+puede. Por eso `loaded` se consulta primero, y hay una prueba específica para esa
+ambigüedad.
+
+---
+
+## Qué implicaciones tienen esos cambios
+
+### Verificación
+
+Con el jar empaquetado y argumentos de línea de comandos:
+
+| Configuración | `GET /api/config` | Comportamiento observado |
+|---|---|---|
+| `--forum.max-depth=3` | `maxDepth: 3` | nivel 4 rechazado con `422` |
+| `--forum.max-depth=5` | `maxDepth: 5` | nivel 6 rechazado con `422` |
+| `--forum.max-depth=0` | `maxDepth: null` | **14 niveles encadenados, sin rechazo** |
+
+### En el renderizado
+
+Ninguna, y no es casualidad: `MAX_VISUAL_INDENT` ya era independiente de `maxDepth`. Con
+anidación ilimitada el sangrado deja de crecer en el nivel 5 y la relación padre-hijo se
+mantiene visible por la guía vertical. Si ambos límites hubieran sido el mismo número, quitar
+el tope habría producido sangrado infinito y desbordamiento horizontal.
+
+### En la profundidad de recursión
+
+`depthOf()` ya tenía una cota (`index.size() + 1`) contra referencias circulares, que ahora
+protege también contra cadenas patológicamente largas. El componente recursivo podría agotar
+la pila con miles de niveles encadenados: es un límite teórico, no alcanzable con uso normal,
+pero **es la implicación real de quitar el tope**.
+
+### En el rendimiento
+
+La anidación ilimitada amplifica la mejora 2 de la Parte 3: árboles más profundos significan
+más trabajo por ensamblado. El coste sigue siendo lineal en número de mensajes, no
+exponencial en profundidad.
+
+### En el contrato
+
+`maxDepth` pasó de ser siempre un número a ser *nullable*. Es **compatible hacia atrás** para
+un cliente que solo lo muestre, e **incompatible** para uno que asumiera que siempre hay
+número. Como el único cliente es el front-end de este proyecto y se actualizó en el mismo
+commit, no hubo transición que gestionar; con clientes externos habría requerido versionar el
+endpoint.
+
+### En la especificación
+
+FR-016 y FR-017 pasaron de «limitar a 5 niveles» a «permitir configurar el límite, incluido
+ilimitado». El contrato REST y este README se actualizaron **en el mismo commit**:
+documentación que contradice al código se trata como defecto, no como deuda.
+
+### En la cobertura
+
+**+8 pruebas** — 59 de back-end y 26 de front-end, todas en verde:
+
+| Archivo | Qué cubre |
+|---|---|
+| `UnlimitedDepthApiTest` | config devuelve `null`, 20 niveles encadenados, nunca `MAX_DEPTH_EXCEEDED`, árbol profundo anidado completo |
+| `MessageServiceTest` | tope de 3 respetado, 30 niveles sin tope, validaciones de padre y contenido intactas sin límite |
+| `forum-config.service.spec.ts` | la ambigüedad de `null` en sus tres estados |
+| `message-node.component.spec.ts` | ofrece responder con profundidad 42; renderiza 12 niveles |
+
+---
+
 ## Ramas
 
 - `dev` — desarrollo
