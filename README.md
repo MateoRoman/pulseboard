@@ -204,6 +204,117 @@ specs/001-foro-jerarquico/    especificación, plan y contrato
 .specify/memory/constitution.md   principios que gobiernan el proyecto
 ```
 
+---
+
+# Parte 1 — Generación de la solución mediante IA
+
+## Herramientas utilizadas
+
+- **Claude Code (Anthropic), modelo Opus 5** — agente de IA en terminal, con acceso al
+  sistema de archivos, ejecución de comandos y consulta web. Única herramienta de
+  generación de código.
+- **GitHub Spec Kit v1.0.6** — toolkit de *Spec-Driven Development*, integrado a Claude Code
+  como skills.
+
+La elección de Spec Kit determinó el método. En lugar de pedir "hacé un foro" y corregir lo
+que saliera, el desarrollo pasó por seis etapas con un artefacto revisable entre cada una:
+
+```
+/speckit-constitution → principios no negociables del proyecto
+/speckit-specify      → especificación funcional, sin tecnología
+/speckit-plan         → arquitectura, stack y contrato de API
+/speckit-tasks        → 77 tareas ejecutables
+/speckit-analyze      → auditoría de consistencia entre artefactos
+/speckit-implement    → implementación
+```
+
+Cada documento se revisó y corrigió **antes** de dejar avanzar a la siguiente etapa. Ahí
+está el valor: los errores se detectan cuando cuestan un párrafo, no cuando cuestan un
+refactor.
+
+## Prompts principales
+
+| # | Prompt | Para qué |
+|---|--------|----------|
+| 1 | *"Instalar Spec Kit y arrancar el proyecto. Si falla algún paso, pará y mostrame el error exacto — no asumas que ya tengo nada."* | Forzar verificación del entorno en lugar de suposiciones |
+| 2 | La premisa completa + stack + estrategia de ramas `dev`/`main` | Constitución del proyecto |
+| 3 | *"No revises el pdf, yo te iré proporcionando la información"* | Acotar el contexto que la IA podía usar |
+| 4 | *"Quité el principio 5; no ates la constitución al ejercicio, sino al alcance del aplicativo"* | Podar el documento de gobierno |
+| 5 | Alcance AL-01..AL-04 + lista explícita de lo que queda **fuera** | Especificación |
+| 6 | *"Validá que las tareas produzcan un aplicativo funcional, que se respete la persistencia en archivo JSON, y que cubra toda la premisa"* | Auditoría con criterios explícitos |
+| 7 | *"Hacé las correcciones para que dé como resultado un aplicativo funcional que se pueda probar"* | Corrección e implementación |
+
+El prompt 6 fue el de mayor rendimiento: pedir una validación **con criterios concretos**,
+en vez de un "¿está bien?" genérico.
+
+## Cómo se refinaron los resultados
+
+**Se acotó el contexto.** La IA abrió por su cuenta el PDF del enunciado y empezó a
+incorporar los criterios de evaluación a la constitución del proyecto. Se cortó: la
+constitución gobierna el producto, no el proceso de evaluación. Un documento de gobierno
+con ruido se vuelve decorativo.
+
+**Se podó la constitución.** De cinco principios a cuatro. Al reescribirla con el criterio
+de "solo alcance y parámetros" apareció el hueco real: **no decía en ningún lado qué hace
+la aplicación**. Se agregó la sección de alcance con AL-01..AL-04 y un bloque explícito de
+*fuera de alcance*, que después fue lo que impidió que se colara funcionalidad "porque es
+barata".
+
+**Se resolvieron las ambigüedades a mano.** La especificación se frenó con dos marcadores
+`[NEEDS CLARIFICATION]`. Ambos afectaban el alcance, así que se decidieron en lugar de
+delegarlos: el modelo de identidad (nombre + avatar al entrar) y la existencia de un tope
+de anidación.
+
+**Se auditó antes de implementar.** Con las 77 tareas listas se pidió `/speckit-analyze`.
+Encontró un bloqueante: **ninguna tarea ensamblaba la aplicación Angular**. Se creaban
+cinco componentes pero nada tocaba el bootstrap ni las rutas; siguiendo las tareas al pie
+de la letra, `npm start` habría levantado la página por defecto de Angular. Es el error
+clásico de la generación asistida: cada pieza correcta y nadie las conecta. También salieron
+una dependencia hacia adelante entre historias y unos tests de front que habrían pasado en
+verde sin probar nada.
+
+**Se verificó contra el artefacto real, no contra el reporte.** Con los 50 tests en verde,
+se abrió `data/messages.json` a mano y apareció un campo `"root"` que no estaba en el
+esquema documentado: Jackson serializaba el método `isRoot()` como propiedad. Un dato
+derivado de `parentId` capaz de contradecirlo. Se corrigió y se agregaron las aserciones
+que lo habrían detectado.
+
+## Decisiones para adaptar o corregir el código generado
+
+**El árbol no se almacena: se deriva.** Lista plana con `parentId` en disco, sin campos
+`depth` ni `replies`. Un `depth` almacenado puede desincronizarse; derivándolo, eso es
+imposible por construcción.
+
+**El límite de anidación vive en un solo lugar.** La alternativa natural —una constante en
+Java y otra en TypeScript— son dos verdades que divergen. Se creó `GET /api/config` para
+eliminar la duplicación. Verificado: el número **solo aparece en `application.yml`**.
+
+**Ocultar el botón no es una garantía.** El front oculta la acción al llegar al máximo
+**y** el servidor rechaza con `422`. Si solo se ocultara, cualquier `curl` crearía un nivel
+de más.
+
+**`422` y no `400` para la profundidad.** La petición es válida; lo que falla es una regla
+sobre el estado del árbol. Distinguirlo permite al front refrescar la vista en vez de
+mostrar un error de formulario.
+
+**MockMvc en lugar de agregar una dependencia.** `TestRestTemplate` exigía un artefacto
+extra. MockMvc ya venía en el starter y cubre lo que se quería verificar.
+
+**Se separó el límite de producto del límite visual.** El componente recursivo tiene su
+propia constante de sangrado, independiente de `maxDepth`. Gracias a eso la anidación
+ilimitada no desborda la pantalla.
+
+**Correcciones forzadas por el entorno**, ninguna detectable leyendo documentación:
+
+| Suposición del plan | Realidad |
+|---|---|
+| Angular 22 (última) | Exige Node `^22.22.3`; el entorno tiene 22.15.1 → Angular 21.2.24 |
+| `spring-boot-starter-web` | Spring Boot 4 renombró los starters → `-webmvc` |
+| Jackson en `com.fasterxml` | Boot 4 usa Jackson 3 → `tools.jackson` |
+| `npm install` funciona | Falla con el grafo de peers de vitest → `legacy-peer-deps` |
+
+---
+
 ## Ramas
 
 - `dev` — desarrollo
