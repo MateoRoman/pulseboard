@@ -20,14 +20,20 @@ a la fase de implementación.
 `^22.22.3 || ^24.15.0 || >=26.0.0` y el entorno tiene 22.15.1. El proyecto fija Angular
 21.2.x por esa razón — ver [research.md](./research.md) R1.
 
-**Nota sobre `JAVA_HOME`**: no está definido en el entorno. `mvnw.cmd` lo consulta antes de
-recurrir al `java` del `PATH`. Si el primer arranque falla indicando que no encuentra el
-JDK:
+**Nota sobre `JAVA_HOME`**: ya está configurado a nivel de usuario en
+`C:\Program Files\Java\jdk-21` desde el 2026-09-11. Es **obligatorio**: el `mvnw.cmd`
+oficial aborta con `Error: JAVA_HOME not found in your environment` si la variable está
+vacía, y no recurre al `java` del `PATH` (ver [research.md](./research.md) R3).
+
+Si abriste la terminal antes de ese cambio, cerrala y abrí una nueva. Para comprobarlo:
 
 ```powershell
-# PowerShell, solo para la sesión actual
-$env:JAVA_HOME = (Get-Item (Get-Command java).Source).Directory.Parent.FullName
+echo $env:JAVA_HOME          # C:\Program Files\Java\jdk-21
+Test-Path "$env:JAVA_HOME\bin\javac.exe"   # True
 ```
+
+En otra máquina, definilo apuntando a la raíz de un JDK 21 (la carpeta que contiene
+`bin\javac.exe`, no el `javapath` de Oracle, que es solo un enlace).
 
 ---
 

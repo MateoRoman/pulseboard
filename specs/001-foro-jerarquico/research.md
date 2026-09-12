@@ -85,9 +85,16 @@ construyen con la misma versión. Spring Initializr lo genera junto al proyecto.
 - *Gradle Wrapper*: equivalente en mecánica; Maven se prefiere por alinearse con lo que
   genera Initializr por defecto.
 
-**Riesgo identificado**: `JAVA_HOME` no está definido en el entorno. `mvnw.cmd` lo consulta
-primero y solo después recurre al `java` del `PATH`. Debe verificarse en el primer arranque
-y, si falla, definir `JAVA_HOME`. El README documenta ambos casos.
+**Riesgo identificado y RESUELTO (2026-09-11)**: `JAVA_HOME` no estaba definido en el
+entorno. Se inspeccionó el `mvnw.cmd` oficial de Apache Maven Wrapper y se confirmó que
+**no** recurre al `java` del `PATH`: si la variable está vacía, aborta con
+`Error: JAVA_HOME not found in your environment`. No era un riesgo hipotético sino un fallo
+seguro.
+
+Resuelto definiendo `JAVA_HOME` a nivel de usuario en `C:\Program Files\Java\jdk-21`
+(javac 21.0.6), verificando que existen `bin\java.exe` y `bin\javac.exe`, que es la
+comprobación que el propio wrapper realiza. El entorno tiene además `jdk-17` instalado; si
+algún otro proyecto lo requiere, deberá fijar su propio `JAVA_HOME` localmente.
 
 ## R4 — Estructura del archivo JSON y estrategia de escritura
 
