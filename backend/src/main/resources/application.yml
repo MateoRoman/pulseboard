@@ -13,6 +13,14 @@ server:
 forum:
   # Profundidad máxima contando el mensaje principal como nivel 1.
   # Con 5, un mensaje principal admite hasta 4 respuestas encadenadas por debajo.
+  #
+  # Valores admitidos:
+  #   3   -> tres niveles
+  #   5   -> cinco niveles
+  #   0   -> ILIMITADO (también cualquier valor negativo)
+  #
+  # Cambiar este número es lo único que hace falta para cambiar el comportamiento:
+  # el servidor lo usa para validar y el front-end lo consulta por GET /api/config.
   max-depth: 5
   max-content-length: 2000
   max-author-name-length: 40

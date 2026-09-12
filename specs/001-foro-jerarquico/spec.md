@@ -14,9 +14,13 @@
 
 - **Identidad**: sin autenticación. Al entrar, la persona declara un nombre y elige un
   avatar de un conjunto predefinido. Esa identidad se conserva durante la sesión.
-- **Profundidad**: límite fijo de **5 niveles**. Un mensaje principal es el nivel 1, de
-  modo que admite hasta 4 respuestas encadenadas por debajo. Alcanzado el límite, la
+- **Profundidad**: límite de **5 niveles** por defecto. Un mensaje principal es el nivel 1,
+  de modo que admite hasta 4 respuestas encadenadas por debajo. Alcanzado el límite, la
   acción de responder deja de ofrecerse.
+
+**Cambio funcional posterior** (2026-09-12): el límite pasó a ser **configurable**, con
+soporte para topes numéricos (3, 5, …) y para **anidación ilimitada**. Ver FR-016..FR-018.
+El valor por defecto sigue siendo 5.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -230,12 +234,14 @@ se verifica que todo el contenido, su jerarquía y sus autores siguen presentes.
 - **FR-014**: El sistema MUST rechazar una respuesta que referencie un mensaje inexistente.
 - **FR-015**: El sistema MUST derivar la profundidad de cada mensaje de su cadena de
   ancestros, sin depender de un valor almacenado por separado.
-- **FR-016**: El sistema MUST limitar la anidación a un máximo de **5 niveles**, contando
-  el mensaje principal como nivel 1. Un mensaje principal admite por tanto hasta 4
-  respuestas encadenadas por debajo.
-- **FR-017**: El sistema MUST NO ofrecer la acción de responder sobre un mensaje que ya se
-  encuentra en el nivel máximo, y MUST rechazar cualquier intento de crear un mensaje que
-  excedería ese límite.
+- **FR-016**: El sistema MUST permitir configurar la profundidad máxima de anidación,
+  contando el mensaje principal como nivel 1. La configuración MUST admitir tanto un tope
+  numérico (por ejemplo 3 o 5) como **anidación ilimitada**. El valor por defecto es 5, de
+  modo que un mensaje principal admite hasta 4 respuestas encadenadas por debajo.
+- **FR-017**: Cuando hay un tope configurado, el sistema MUST NO ofrecer la acción de
+  responder sobre un mensaje que ya se encuentra en el nivel máximo, y MUST rechazar
+  cualquier intento de crear un mensaje que excedería ese límite. Con anidación ilimitada
+  la acción MUST ofrecerse siempre y ningún mensaje MUST rechazarse por profundidad.
 - **FR-018**: El límite de anidación MUST estar declarado en un único lugar del sistema.
   Ningún componente de presentación o de validación MUST incorporar el número por su
   cuenta.

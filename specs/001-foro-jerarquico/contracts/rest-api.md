@@ -42,6 +42,13 @@ responder. Este endpoint elimina la duplicación en vez de sincronizar dos const
 }
 ```
 
+`maxDepth` es **`null` cuando la anidación es ilimitada**. No se usa un número enorme como
+centinela: `null` hace que «sin límite» sea inequívoco en el JSON y evita que un cliente lo
+confunda con un tope alto o haga aritmética sobre él.
+
+Un cliente MUST distinguir `maxDepth: null` («sin límite») de «todavía no recibí la
+configuración». Son estados distintos: en el segundo no debe ofrecer responder.
+
 El front-end MUST usar estos valores para validar en el formulario y para decidir la
 visibilidad de la acción de responder. MUST NOT incorporar ninguno de estos números por su
 cuenta.
@@ -159,7 +166,7 @@ Crea un mensaje principal o una respuesta. La diferencia la marca `parentId`.
 | `400` | `AUTHOR_NAME_TOO_LONG` | `authorName` supera 40 caracteres | FR-002 |
 | `400` | `AVATAR_INVALID` | `authorAvatar` fuera del conjunto | FR-003 |
 | `404` | `PARENT_NOT_FOUND` | `parentId` no corresponde a ningún mensaje | FR-014 |
-| `422` | `MAX_DEPTH_EXCEEDED` | El padre ya está en `maxDepth` | FR-016, FR-017 |
+| `422` | `MAX_DEPTH_EXCEEDED` | El padre ya está en `maxDepth`. No ocurre nunca con anidación ilimitada | FR-016, FR-017 |
 
 **Por qué `422` y no `400` para la profundidad**: la petición está bien formada y todos sus
 campos son válidos; lo que falla es una regla de negocio sobre el estado actual del árbol.

@@ -20,8 +20,14 @@ export class ForumConfigService {
     this.config.set(await firstValueFrom(this.api.config()));
   }
 
+  /** Profundidad máxima, o `null` si es ilimitada o si aún no cargó la configuración. */
   get maxDepth(): number | null {
     return this.config()?.maxDepth ?? null;
+  }
+
+  /** Si la anidación no tiene tope. Falso mientras la configuración no haya cargado. */
+  get unlimitedDepth(): boolean {
+    return this.loaded && this.config()!.maxDepth === null;
   }
 
   get maxContentLength(): number | null {
@@ -43,13 +49,24 @@ export class ForumConfigService {
   /**
    * Si un mensaje admite respuestas.
    *
-   * Un mensaje que ya está en el nivel máximo no las admite, porque su hijo
-   * sería el nivel maxDepth + 1. Mientras la configuración no haya cargado se
-   * responde que no: es preferible ocultar la acción un instante a ofrecerla y
-   * que el servidor la rechace (FR-017).
+   * Tres casos, en este orden:
+   *
+   * 1. Configuración sin cargar → no. Es preferible ocultar la acción un instante
+   *    a ofrecerla y que el servidor la rechace (FR-017).
+   * 2. Anidación ilimitada → sí, siempre.
+   * 3. Con tope → solo si el mensaje está por debajo de él: un mensaje en el nivel
+   *    máximo no admite respuestas porque su hijo sería `maxDepth + 1`.
+   *
+   * El orden importa: `maxDepth === null` significa cosas opuestas en los casos 1 y 2,
+   * así que hay que descartar el 1 antes de interpretarlo.
    */
   canReplyTo(depth: number): boolean {
-    const max = this.maxDepth;
-    return max !== null && depth < max;
+    if (!this.loaded) {
+      return false;
+    }
+    if (this.unlimitedDepth) {
+      return true;
+    }
+    return depth < this.maxDepth!;
   }
 }

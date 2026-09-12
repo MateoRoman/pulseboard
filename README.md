@@ -56,8 +56,8 @@ mediante `proxy.conf.json`, así que no hace falta configurar CORS.
 ### Pruebas
 
 ```bash
-cd backend  && ./mvnw test     # 51 pruebas
-cd frontend && npm test        # 20 pruebas
+cd backend  && ./mvnw test     # 59 pruebas
+cd frontend && npm test        # 26 pruebas
 ```
 
 ---
@@ -101,7 +101,7 @@ Por qué: un dato almacenado puede desincronizarse de la estructura real. Si la 
 estuviera guardada y alguien editara un `parentId`, la aplicación mostraría un árbol que
 contradice sus propios datos. Derivándola, eso es imposible por construcción.
 
-### El límite de anidación vive en un solo lugar
+### El límite de anidación es configurable y vive en un solo lugar
 
 `backend/src/main/resources/application.yml`:
 
@@ -110,9 +110,18 @@ forum:
   max-depth: 5      # el mensaje principal es el nivel 1
 ```
 
+| Valor | Comportamiento |
+|-------|----------------|
+| `3` | tres niveles |
+| `5` | cinco niveles (por defecto) |
+| `0` o negativo | **ilimitado** |
+
+Cambiar el comportamiento es editar esa línea y reiniciar. No hay código que tocar.
+
 El back-end lo lee para validar; el front-end lo consulta por `GET /api/config` para
-decidir si ofrece la acción de responder. **Ningún componente escribe ese número.** Cambiar
-el límite a 3, 10 o cualquier otro valor es editar esa línea y reiniciar.
+decidir si ofrece la acción de responder. **Ningún componente escribe ese número.** Con
+anidación ilimitada, `GET /api/config` devuelve `maxDepth: null` — `null` significa «sin
+límite», no «desconocido».
 
 Ocultar el botón de responder es una mejora de experiencia, no la garantía: el servidor
 rechaza con `422 MAX_DEPTH_EXCEEDED` cualquier intento de superar el límite, aunque la

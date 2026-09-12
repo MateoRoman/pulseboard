@@ -266,6 +266,76 @@ class MessageServiceTest {
         return max;
     }
 
+    // --- Anidación ilimitada (max-depth: 0) ---
+
+    /** Servicio configurado sin tope de profundidad. */
+    private MessageService unlimitedService() {
+        ForumProperties properties =
+                new ForumProperties(
+                        0, MAX_CONTENT, MAX_NAME,
+                        tempDir.resolve("unlimited.json").toString(),
+                        List.of("avatar-01", "avatar-02"));
+        return new MessageService(
+                new JsonMessageRepository(properties, JsonMapper.builder().build()), properties);
+    }
+
+    @Test
+    @DisplayName("con max-depth 0 la anidación no tiene tope")
+    void unlimitedDepthAllowsArbitraryNesting() {
+        MessageService unlimited = unlimitedService();
+        MessageNode current = unlimited.create(request("nivel 1", null));
+
+        // Muy por encima del tope de 5 que rige por defecto.
+        for (int depth = 2; depth <= 30; depth++) {
+            current = unlimited.create(request("nivel " + depth, current.message().id()));
+            assertThat(current.depth()).isEqualTo(depth);
+        }
+
+        assertThat(current.depth()).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("sin tope, un padre inexistente se sigue rechazando")
+    void unlimitedStillValidatesParentExistence() {
+        assertThatThrownBy(() -> unlimitedService().create(request("x", UUID.randomUUID())))
+                .isInstanceOf(ForumException.class)
+                .extracting(e -> ((ForumException) e).code())
+                .isEqualTo("PARENT_NOT_FOUND");
+    }
+
+    @Test
+    @DisplayName("sin tope, el resto de validaciones siguen vigentes")
+    void unlimitedStillValidatesContent() {
+        assertThatThrownBy(() -> unlimitedService().create(request("   ", null)))
+                .isInstanceOf(ForumException.class)
+                .extracting(e -> ((ForumException) e).code())
+                .isEqualTo("CONTENT_EMPTY");
+    }
+
+    @Test
+    @DisplayName("un max-depth de 3 corta en el tercer nivel")
+    void limitOfThreeIsHonoured() {
+        ForumProperties properties =
+                new ForumProperties(
+                        3, MAX_CONTENT, MAX_NAME,
+                        tempDir.resolve("three.json").toString(),
+                        List.of("avatar-01"));
+        MessageService limited =
+                new MessageService(
+                        new JsonMessageRepository(properties, JsonMapper.builder().build()), properties);
+
+        MessageNode current = limited.create(request("nivel 1", null));
+        current = limited.create(request("nivel 2", current.message().id()));
+        current = limited.create(request("nivel 3", current.message().id()));
+        UUID deepest = current.message().id();
+
+        assertThat(current.depth()).isEqualTo(3);
+        assertThatThrownBy(() -> limited.create(request("nivel 4", deepest)))
+                .isInstanceOf(ForumException.class)
+                .extracting(e -> ((ForumException) e).code())
+                .isEqualTo("MAX_DEPTH_EXCEEDED");
+    }
+
     // --- Lectura ---
 
     @Test

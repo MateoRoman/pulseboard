@@ -111,7 +111,10 @@ public class MessageService {
             return null;
         }
         MessageNode parent = tree().findById(parentId).orElseThrow(ForumException::parentNotFound);
-        if (parent.depth() >= properties.maxDepth()) {
+
+        // Con la anidación sin tope, la existencia del padre es la única condición: no hay
+        // profundidad contra la que comparar.
+        if (properties.hasDepthLimit() && parent.depth() >= properties.maxDepth()) {
             throw ForumException.maxDepthExceeded(properties.maxDepth());
         }
         return parentId;

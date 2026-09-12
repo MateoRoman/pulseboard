@@ -30,7 +30,14 @@ export interface Message {
  * Ningún componente declara estos valores por su cuenta (FR-018).
  */
 export interface ForumConfig {
-  maxDepth: number;
+  /**
+   * Profundidad máxima, o `null` cuando la anidación es ilimitada.
+   *
+   * `null` significa «sin límite», no «desconocido». Para saber si la configuración
+   * llegó se usa `ForumConfigService.loaded`: son dos preguntas distintas y
+   * confundirlas ofrecería responder cuando no se debe, o al revés.
+   */
+  maxDepth: number | null;
   maxContentLength: number;
   maxAuthorNameLength: number;
   avatars: string[];

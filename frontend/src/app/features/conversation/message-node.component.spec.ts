@@ -6,9 +6,12 @@ import { MessageNodeComponent } from './message-node.component';
 
 /** ForumConfigService con el límite fijado, sin pegarle a la API en las pruebas. */
 class StubForumConfigService {
-  constructor(private readonly max: number) {}
+  constructor(private readonly max: number | null) {}
   get maxDepth() {
     return this.max;
+  }
+  get unlimitedDepth() {
+    return this.max === null;
   }
   get maxContentLength() {
     return 2000;
@@ -23,7 +26,7 @@ class StubForumConfigService {
     return true;
   }
   canReplyTo(depth: number) {
-    return depth < this.max;
+    return this.max === null ? true : depth < this.max;
   }
 }
 
@@ -42,7 +45,10 @@ function chain(depth: number, current = 1): Message {
 }
 
 describe('MessageNodeComponent', () => {
-  async function render(message: Message, maxDepth = 5): Promise<ComponentFixture<MessageNodeComponent>> {
+  async function render(
+    message: Message,
+    maxDepth: number | null = 5,
+  ): Promise<ComponentFixture<MessageNodeComponent>> {
     await TestBed.configureTestingModule({
       imports: [MessageNodeComponent],
       providers: [
@@ -149,5 +155,22 @@ describe('MessageNodeComponent', () => {
 
     expect(text).toContain('rama uno');
     expect(text).toContain('rama dos');
+  });
+
+  it('con anidación ilimitada siempre ofrece responder, sin importar la profundidad', async () => {
+    // Profundidad 42, muy por encima del tope que rige por defecto.
+    const fixture = await render({ ...chain(1), depth: 42 }, null);
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('.link')?.textContent).toContain('Responder');
+    expect(host.querySelector('.max-depth')).toBeNull();
+  });
+
+  it('con anidación ilimitada renderiza cadenas más profundas que el tope por defecto', async () => {
+    const fixture = await render(chain(12), null);
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelectorAll('app-message-node').length).toBe(11);
+    expect(host.textContent).toContain('contenido nivel 12');
   });
 });
