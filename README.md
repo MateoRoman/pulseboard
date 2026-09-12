@@ -585,6 +585,245 @@ Tres propiedades que esto garantiza:
 
 ---
 
+# Parte 3 — Identificación de mejoras
+
+Cinco oportunidades de mejora sobre la solución entregada. **Ninguna está implementada**:
+son propuestas.
+
+---
+
+## 1. La aplicación no percibe cambios externos
+
+**Eje**: diseño de componentes · manejo de estado
+
+### Problema
+
+No existe ningún canal por el que la aplicación se entere de que el estado cambió fuera de
+ella. Verificado por ausencia total de:
+
+| Búsqueda en `frontend/src/app` | Resultado |
+|---|---|
+| `addEventListener` · `'storage'` · `BroadcastChannel` | ninguno |
+| `setInterval` · `EventSource` · `WebSocket` | ninguno |
+
+`IdentityService` lee `localStorage` **una sola vez**, al instanciarse:
+
+```typescript
+private readonly current = signal<Participant | null>(read());
+```
+
+Y `reload()` se dispara solo al arrancar y tras **la propia** publicación del usuario.
+
+### Riesgo o impacto actual
+
+Dos síntomas, de gravedad muy distinta:
+
+- **Identidad** — con dos pestañas abiertas, cambiar de usuario en una no actualiza la
+  otra. Se publica con la identidad equivocada, sin error ni aviso.
+- **Contenido** — los mensajes publicados por otra persona **nunca aparecen** hasta
+  recargar la página. En una aplicación cuyo propósito es que varios conversen, esto
+  significa que dos personas no pueden mantener una conversación.
+
+El segundo es el defecto de producto más serio del proyecto.
+
+> **Matiz**: los mensajes ya publicados deben seguir mostrando a su autor original. Eso es
+> correcto y deliberado (FR-006). El defecto es solo la identidad *activa*.
+
+### Solución propuesta
+
+Escalonada:
+
+1. **Identidad entre pestañas** — escuchar el evento `storage` en `IdentityService` y
+   actualizar la señal. ~10 líneas.
+2. **Contenido, versión simple** — *polling* condicional con `If-None-Match`; el servidor
+   responde `304` si no hubo cambios.
+3. **Contenido, versión correcta** — *Server-Sent Events*: el servidor notifica y el
+   cliente recarga solo entonces. Unidireccional, que es lo que se necesita; un WebSocket
+   sería sobredimensionado.
+
+### Beneficio esperado
+
+El foro funciona como foro. Se elimina la publicación con identidad equivocada. El punto 2
+además obliga a calcular una versión del estado, que es la base de la mejora 2.
+
+---
+
+## 2. Lectura y reconstrucción completa en cada operación
+
+**Eje**: rendimiento
+
+### Problema
+
+`MessageService.create()` invoca `tree()` **tres veces** por publicación: en
+`validatedParent()`, dentro de `repository.append()` al leer, y al final para devolver el
+mensaje con su profundidad. Cada llamada lee el archivo completo, lo deserializa y
+reconstruye el árbol desde cero. Cada escritura reserializa el archivo entero.
+
+### Riesgo o impacto actual
+
+Coste **O(n) por operación, O(n²) al poblar el foro**. Con cientos de mensajes es
+imperceptible (200 mensajes concurrentes pasan en 1,3 s). A partir de unos miles, publicar
+se degrada de forma visible, y el `ReentrantReadWriteLock` convierte esa lentitud en
+contención: cada escritura bloquea todas las lecturas.
+
+Hoy es una decisión consciente dentro del volumen asumido, no un defecto. Se vuelve uno
+cuando ese supuesto cambie.
+
+### Solución propuesta
+
+Estado en memoria como fuente de lectura, archivo solo para durabilidad:
+
+- Cargar el archivo una vez al arrancar y conservar el `Map<UUID, Message>`.
+- Cachear el árbol ensamblado e invalidarlo al escribir.
+- Si reescribir molesta, pasar a un registro de operaciones con compactación periódica.
+
+El cambio queda **contenido en `JsonMessageRepository`**: ninguna otra clase se entera,
+porque el Principio III ya puso esa frontera.
+
+### Beneficio esperado
+
+Ensamblar el árbol una vez por *cambio* en lugar de una vez por *petición*. Publicar deja
+de escalar con el tamaño del foro.
+
+---
+
+## 3. Sin paginación ni carga incremental
+
+**Eje**: escalabilidad
+
+### Problema
+
+`GET /api/conversations` devuelve **todas** las conversaciones con **todos** sus mensajes
+anidados. El front las renderiza completas y, tras cada publicación, vuelve a pedir el
+conjunto entero.
+
+### Riesgo o impacto actual
+
+La respuesta crece linealmente y sin tope. Con 5.000 mensajes son varios MB de JSON por
+petición, y Angular construye un componente por mensaje: el desplazamiento se entrecorta.
+El peor momento de carga coincide con el instante en que el usuario acaba de publicar y
+espera respuesta inmediata.
+
+La paginación está **explícitamente fuera del alcance** declarado: es una restricción
+aceptada, no un descuido. Pero es la primera barrera real de escalabilidad.
+
+### Solución propuesta
+
+1. Paginar las conversaciones raíz (`?page=0&size=20`), sin tocar la anidación interna.
+2. Cargar subárboles bajo demanda. `GET /api/conversations/{id}` ya existe y es la mitad
+   del camino.
+3. Sustituir la recarga completa tras publicar por la inserción local del mensaje que el
+   `201` **ya devuelve** con su `depth` calculado.
+
+El punto 3 es el de mejor relación coste/beneficio y no requiere cambiar el contrato.
+
+### Beneficio esperado
+
+El tiempo de carga inicial deja de depender del tamaño del foro. Se elimina un viaje de red
+por publicación, aprovechando datos que hoy se descartan.
+
+---
+
+## 4. Sin protección contra abuso
+
+**Eje**: seguridad
+
+### Problema
+
+`POST /api/messages` no tiene límite de frecuencia, ni de tamaño total del almacén, ni
+forma alguna de identificar a quien publica. No hay autenticación —está fuera de alcance—
+pero tampoco ningún otro control.
+
+### Riesgo o impacto actual
+
+Un script externo puede publicar miles de mensajes por segundo hasta llenar el disco. Cada
+uno dispara además una reescritura completa del archivo, así que el servicio se degrada
+mucho antes de agotar el almacenamiento. En ejecución local el riesgo es teórico; expuesto
+en red, es la vulnerabilidad más directa del sistema.
+
+### Solución propuesta
+
+- *Rate limiting* por IP: N publicaciones por minuto, respondiendo `429 Too Many Requests`.
+- Tope configurable de mensajes totales o tamaño del archivo, con error explícito.
+- Registrar la IP de origen junto al mensaje, para rastrear abusos sin introducir cuentas.
+
+### Beneficio esperado
+
+El coste de un abuso deja de ser cero. El `429` le da al cliente una señal accionable,
+coherente con el manejo de errores que ya existe.
+
+---
+
+## 5. Las respuestas no se pueden plegar
+
+**Eje**: diseño de componentes · UI
+
+### Problema
+
+`MessageNodeComponent` renderiza **todas** las respuestas de un mensaje, siempre y
+completas. No hay forma de contraer una rama:
+
+```html
+@if (message().replies.length) {
+  <div class="replies">
+    @for (reply of message().replies; track reply.id) {
+      <app-message-node [message]="reply" … />   <!-- sin condición de visibilidad -->
+    }
+  </div>
+}
+```
+
+El único control existente es `toggleReply()`, que muestra u oculta el **formulario** de
+respuesta. No existe nada equivalente para las respuestas en sí.
+
+### Riesgo o impacto actual
+
+Una conversación con muchas respuestas empuja al resto fuera de la pantalla: para llegar a
+la siguiente conversación hay que recorrer la anterior entera. No se puede ojear el foro.
+
+Se agrava con la profundidad y con el ancho: a 360 px, un hilo activo de cinco niveles es
+prácticamente innavegable. Y se compone con la mejora 3 — sin paginación **y** sin plegado,
+el foro completo es un único muro continuo.
+
+Es el patrón que cualquier usuario da por sentado en un hilo de comentarios, y su ausencia
+se nota de inmediato.
+
+### Solución propuesta
+
+Un control de plegado por nodo, con contador de lo que se oculta:
+
+```
+▾ Ana · hace 2 h
+  Me parece bien.
+  ▸ 12 respuestas          ← plegado: un clic las expande
+```
+
+- **Estado local en el componente**, con el mismo patrón que ya usa `replying`:
+  `collapsed = signal(false)`. El componente ya es recursivo, así que cada nodo gestiona el
+  suyo sin coordinación externa.
+- **Contador de descendientes** — recorrido recursivo sobre `replies`, barato y calculable
+  en el cliente con los datos que ya llegan.
+- **Criterio de plegado inicial** — expandido por defecto; plegado automático al superar un
+  umbral de respuestas o de profundidad. El umbral debería seguir el mismo camino que
+  `maxDepth`: configurable y consultado, nunca escrito en el componente.
+- **Accesibilidad** — `aria-expanded` y `aria-controls` en el control, para que el estado
+  sea legible por lectores de pantalla.
+- El plegado es **estado de vista**, no del dominio: no viaja al servidor. Si conviene
+  recordarlo entre recargas, `localStorage` por conversación alcanza.
+
+### Beneficio esperado
+
+Se puede ojear el foro y saltar de una conversación a otra sin recorrerlas. La aplicación
+se vuelve usable en pantallas angostas, que es donde hoy más sufre.
+
+Además, un nodo plegado **no renderiza su subárbol**: los nodos del DOM bajan de forma
+proporcional a lo que esté contraído, lo que ataca por el lado del cliente el mismo
+problema de volumen que la mejora 3 ataca por el lado del servidor. Y el control de
+plegado es exactamente la superficie donde después encaja un «cargar más respuestas» si se
+implementa la carga bajo demanda.
+
+---
+
 ## Ramas
 
 - `dev` — desarrollo
