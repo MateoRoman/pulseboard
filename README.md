@@ -311,6 +311,280 @@ ilimitada no desborda la pantalla.
 
 ---
 
+# Parte 2 — Análisis del código generado
+
+## Arquitectura propuesta
+
+### Componentes principales
+
+**Back-end** — cinco paquetes, una responsabilidad cada uno:
+
+| Paquete | Clase | Responsabilidad |
+|---------|-------|-----------------|
+| `config` | `ForumProperties` | Límites leídos de `application.yml`. Fuente única de `max-depth` |
+| `domain` | `Message` | El mensaje tal como se persiste. Record inmutable |
+| | `MessageTree` | Ensambla el árbol desde la lista plana y calcula profundidades |
+| | `MessageNode` | Un mensaje ya situado en el árbol, con su profundidad y sus hijos |
+| `repository` | `MessageRepository` | Interfaz. Única puerta al almacenamiento |
+| | `JsonMessageRepository` | Implementación sobre archivo: escritura atómica y bloqueo |
+| `service` | `MessageService` | Validaciones y reglas de negocio |
+| `web` | `MessageController` · `ConfigController` | Endpoints |
+| | `ApiExceptionHandler` | Traduce excepciones a la forma estable de error |
+| | `dto/` | Forma de la API, distinta del esquema persistido |
+
+**Front-end** — Angular 21 con componentes standalone y *signals*:
+
+| Capa | Pieza | Responsabilidad |
+|------|-------|-----------------|
+| `core/services` | `ForumApiService` | Único punto de acceso HTTP |
+| | `ForumConfigService` | Guarda los límites que decide el servidor |
+| | `IdentityService` | Identidad local en `localStorage` |
+| `core/guards` | `identityGuard` | Impide entrar sin identidad declarada |
+| `features` | `IdentityComponent` | Alta y cambio de nombre/avatar |
+| | `ConversationListComponent` | Lista de conversaciones y composición |
+| | `ConversationComponent` | Una conversación |
+| | **`MessageNodeComponent`** | **Renderizador recursivo** |
+| | `MessageFormComponent` | Publicar y responder |
+
+### Flujo Front-end ↔ Back-end
+
+```
+ARRANQUE
+  provideAppInitializer ──── GET /api/config ─────────────►  ConfigController
+  ForumConfigService    ◄─── {maxDepth, avatars, límites} ──┘ lee ForumProperties
+
+LECTURA
+  ConversationList      ──── GET /api/conversations ──────►  MessageController
+                                                                  │ Repository.findAll()
+                                                                  │ MessageTree.from(lista)
+                        ◄─── {conversations:[{replies:[…]}]} ─────┘ ensambla el árbol
+  MessageNode (recursivo) dibuja
+
+ESCRITURA
+  MessageForm           ──── POST /api/messages ──────────►  MessageController
+                                                                  │ valida contenido y autor
+                                                                  │ valida padre y profundidad
+                                                                  │ Repository.append()
+                        ◄─── 201 + mensaje con depth ────────────┘ temporal + ATOMIC_MOVE
+  published → reload()  ──── GET /api/conversations ──────►  (vuelve a leer)
+```
+
+Dos decisiones de este flujo:
+
+- **La configuración se carga antes del primer render.** Así ningún componente ve un estado
+  donde `maxDepth` es desconocido, que es justo cuando resultaría tentador escribir el
+  número a mano.
+- **Tras publicar se recarga la conversación** en lugar de insertar el mensaje en el estado
+  local. Más simple y sin riesgo de que la vista y el servidor diverjan.
+
+### Manejo de datos
+
+Tres representaciones del mismo mensaje, cada una con su forma:
+
+| | En disco (`Message`) | En dominio (`MessageNode`) | En la API (`MessageResponse`) |
+|---|---|---|---|
+| Estructura | plana, con `parentId` | árbol enlazado | árbol anidado en `replies[]` |
+| Profundidad | **no existe** | calculada | calculada, expuesta como `depth` |
+| Hijos | **no existen** | `replies[]` en memoria | `replies[]` en el JSON |
+
+La traducción es deliberada. Reutilizar la misma clase en las tres capas ataría el formato
+de almacenamiento al contrato público: cualquier cambio en uno rompería el otro.
+
+### Estrategia de persistencia
+
+Archivo único `backend/data/messages.json`, con tres garantías (detalle en
+[Persistencia segura sobre un archivo plano](#persistencia-segura-sobre-un-archivo-plano)):
+
+- **Escritura atómica** — temporal + `Files.move(ATOMIC_MOVE, REPLACE_EXISTING)`. Una
+  interrupción deja intacto el archivo anterior, nunca uno a medio escribir.
+- **Acceso serializado** — `ReentrantReadWriteLock`: varias lecturas se solapan entre sí,
+  ninguna se solapa con una escritura.
+- **`schemaVersion`** — permite detectar un formato desconocido y fallar explícitamente en
+  lugar de leerlo mal en silencio.
+
+---
+
+## Funcionamiento del código
+
+### Cómo se crean los comentarios
+
+`MessageService.create()` — el servidor controla lo que el cliente no debe controlar:
+
+```java
+public MessageNode create(CreateMessageRequest request) {
+    String content      = validatedContent(request.content());      // 1..2000, sin espacios
+    String authorName   = validatedAuthorName(request.authorName()); // 1..40
+    String authorAvatar = validatedAvatar(request.authorAvatar());   // del conjunto
+    UUID   parentId     = validatedParent(request.parentId());       // existe y cabe
+
+    Message message = new Message(
+            UUID.randomUUID(),   // el id lo asigna el servidor
+            content, authorName, authorAvatar,
+            Instant.now(),       // la fecha también
+            parentId);
+
+    repository.append(message);
+    return tree().findById(message.id()).orElseThrow();
+}
+```
+
+- **`CreateMessageRequest` no tiene campos `id` ni `createdAt`.** Si el cliente los envía se
+  ignoran por no existir en el DTO: el tipo lo impide, sin código defensivo.
+- **Se relee el árbol para devolver el mensaje.** Calcular la profundidad aparte daría dos
+  cálculos que pueden discrepar; releer garantiza que el `depth` devuelto es el mismo que
+  verá cualquier lectura posterior.
+
+La validación del padre es donde vive el límite de anidación:
+
+```java
+private UUID validatedParent(UUID parentId) {
+    if (parentId == null) return null;                    // mensaje principal
+
+    MessageNode parent = tree().findById(parentId)
+        .orElseThrow(ForumException::parentNotFound);     // 404 PARENT_NOT_FOUND
+
+    if (properties.hasDepthLimit() && parent.depth() >= properties.maxDepth()) {
+        throw ForumException.maxDepthExceeded(properties.maxDepth());  // 422
+    }
+    return parentId;
+}
+```
+
+### Cómo se almacenan
+
+```java
+public Message append(Message message) {
+    lock.writeLock().lock();
+    try {
+        List<Message> messages = new ArrayList<>(read().messages());
+        messages.add(message);
+        write(new MessageStore(CURRENT_SCHEMA_VERSION, messages));
+        return message;
+    } finally {
+        lock.writeLock().unlock();
+    }
+}
+
+private void write(MessageStore store) {
+    Files.write(tempFile, objectMapper.writeValueAsBytes(store));
+    Files.move(tempFile, dataFile, ATOMIC_MOVE, REPLACE_EXISTING);
+}
+```
+
+`append` es el nombre del método —«agregar un mensaje a la colección»—, no una escritura al
+final del archivo: se **reescribe el archivo completo** en cada publicación.
+`StandardOpenOption.APPEND` no aparece en ninguna línea del proyecto. El archivo es siempre
+un documento JSON válido y completo.
+
+Es O(n) por escritura. Aceptable para el volumen asumido (cientos de mensajes) y es el
+precio de esa garantía.
+
+### Cómo se renderizan los niveles de respuestas
+
+El componente **se invoca a sí mismo** en su propia plantilla:
+
+```html
+<article class="node" [style.--indent]="indentLevel()">
+  <div class="message"> … avatar, autor, contenido … </div>
+
+  @if (message().replies.length) {
+    <div class="replies">
+      @for (reply of message().replies; track reply.id) {
+        <app-message-node [message]="reply" (replied)="replied.emit()" />
+      }
+    </div>
+  }
+</article>
+```
+
+No hay bucle con un número de niveles ni `switch` por profundidad. La recursión termina
+sola cuando `replies` está vacío.
+
+La separación clave está en el TypeScript:
+
+```typescript
+protected canReply(): boolean {
+  return this.config.canReplyTo(this.message().depth);            // límite del SERVIDOR
+}
+
+protected indentLevel(): number {
+  return Math.min(this.message().depth - 1, MAX_VISUAL_INDENT);   // límite VISUAL
+}
+```
+
+**Son dos límites distintos y deliberadamente independientes.** `maxDepth` es una regla de
+producto que vive en el servidor; `MAX_VISUAL_INDENT` es cuántos escalones de sangrado
+caben en pantalla. Gracias a esa separación, la anidación ilimitada no desborda la vista: el
+sangrado deja de crecer, pero la guía vertical mantiene visible la relación padre-hijo.
+
+Verificado con `grep`: el número del límite **solo aparece en `application.yml`**. Ni en
+Java, ni en TypeScript, ni en HTML.
+
+### Cómo se manejan las relaciones padre-hijo
+
+La relación se guarda **una sola vez, en el hijo**, como `parentId`. El padre no tiene lista
+de hijos en disco: duplicarla abriría la puerta a que ambas copias divergieran.
+
+El árbol se ensambla en dos pasadas, coste lineal:
+
+```java
+public static MessageTree from(List<Message> messages) {
+    // Pasada 1 — indexar por id y calcular profundidad
+    Map<UUID, Message> index = new HashMap<>();
+    for (Message m : messages) index.put(m.id(), m);
+
+    Map<UUID, MessageNode> nodes = new HashMap<>();
+    for (Message m : messages) {
+        int depth = depthOf(m, index);
+        if (depth < 0) { log.warn("huérfano, se omite"); continue; }
+        nodes.put(m.id(), new MessageNode(m, depth));
+    }
+
+    // Pasada 2 — enlazar cada nodo con su padre
+    List<MessageNode> roots = new ArrayList<>();
+    for (MessageNode node : nodes.values()) {
+        UUID parentId = node.message().parentId();
+        if (parentId == null) roots.add(node);
+        else nodes.get(parentId).addReply(node);
+    }
+
+    roots.sort(ROOTS_NEWEST_FIRST);
+    roots.forEach(MessageNode::sortReplies);
+    return new MessageTree(roots, nodes);
+}
+```
+
+Y la profundidad se **deriva** recorriendo la cadena de ancestros:
+
+```java
+private static int depthOf(Message message, Map<UUID, Message> index) {
+    int depth = 1;                     // el mensaje principal es nivel 1
+    UUID parentId = message.parentId();
+    int guard = index.size() + 1;      // cota contra referencias circulares
+
+    while (parentId != null) {
+        if (guard-- <= 0) return -1;
+        Message parent = index.get(parentId);
+        if (parent == null) return -1; // cadena rota: huérfano
+        depth++;
+        parentId = parent.parentId();
+    }
+    return depth;
+}
+```
+
+Tres propiedades que esto garantiza:
+
+- **Determinismo.** El resultado no depende del orden de lectura del archivo, porque el
+  ordenamiento se aplica sobre `createdAt` con desempate por `id`. Hay una prueba que
+  baraja la lista diez veces y compara la estructura resultante.
+- **Imposible desincronizar.** Al no almacenar `depth`, no puede contradecir a `parentId`.
+- **Huérfanos explícitos.** Un `parentId` que apunta a nada se registra y se omite, en vez
+  de colgarse como raíz falsa: mostrarlo como mensaje principal sería mentir sobre su
+  origen.
+
+---
+
 ## Ramas
 
 - `dev` — desarrollo
